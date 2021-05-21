@@ -125,6 +125,7 @@ val graalVersion = "21.1.0"
 
 val akkaDependencies = Seq(
   "com.typesafe.akka" %% "akka-actor"          % akkaVersion,
+  "com.typesafe.akka" %% "akka-actor-typed"          % akkaVersion,
   "com.typesafe.akka" %% "akka-cluster"        % akkaVersion,
   "com.typesafe.akka" %% "akka-stream"         % akkaVersion,
   "com.typesafe.akka" %% "akka-http"           % akkaHttpVersion,
@@ -298,7 +299,10 @@ lazy val node = project.in(file("node"))
       "bifrost.version" -> version.value
     ),
     libraryDependencies ++= (akkaDependencies ++ networkDependencies ++ jsonDependencies ++ loggingDependencies
-      ++ testingDependenciesTest ++ cryptoDependencies ++ miscDependencies ++ monitoringDependencies ++ testingDependenciesIt)
+      ++ testingDependenciesTest ++ cryptoDependencies ++ miscDependencies ++ monitoringDependencies ++ testingDependenciesIt),
+    libraryDependencies ++= Seq(
+      "jakarta.xml.bind" % "jakarta.xml.bind-api" % "2.3.2"
+    )
   )
   .configs(IntegrationTest)
   .settings(
@@ -316,6 +320,16 @@ lazy val common = project.in(file("common"))
       cryptoDependencies ++ simulacrum ++ testingDependenciesTest
   )
   .settings(scalamacrosParadiseSettings)
+
+lazy val storage = project.in(file("storage"))
+  .settings(
+    name := "storage",
+    commonSettings,
+    publish / skip := true,
+    libraryDependencies ++= akkaDependencies
+  )
+  .dependsOn(common)
+  .disablePlugins(sbtassembly.AssemblyPlugin)
 
 lazy val chainProgram = project.in(file("chain-program"))
   .settings(
