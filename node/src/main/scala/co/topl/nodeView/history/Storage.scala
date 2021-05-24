@@ -1,24 +1,15 @@
 package co.topl.nodeView.history
 
-import akka.actor.typed._
-import akka.actor.typed.scaladsl.Behaviors
-import akka.util.Timeout
-import cats.data.EitherT
-import cats.implicits._
 import co.topl.modifier.ModifierId
 import co.topl.modifier.block.serialization.BlockSerializer
 import co.topl.modifier.block.{Block, BloomFilter}
 import co.topl.modifier.transaction.Transaction
-import co.topl.modifier.transaction.validation.SemanticValidation
-import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
-import co.topl.utils.{Int128, Logging}
+import co.topl.utils.Logging
 import com.google.common.cache.{CacheBuilder, CacheLoader, LoadingCache}
 import com.google.common.primitives.Longs
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 import scorex.crypto.hash.{Blake2b256, Digest32}
 
-import scala.annotation.tailrec
-import scala.concurrent.Future
 import scala.concurrent.duration.MILLISECONDS
 import scala.util.Try
 
@@ -216,132 +207,5 @@ class Storage(private[history] val storage: LSMStore, private val cacheExpire: I
   def rollback(parentId: ModifierId): Try[Unit] = Try {
     blockCache.invalidateAll()
     storage.rollback(ByteArrayWrapper(parentId.bytes))
-  }
-}
-
-trait ChainStoreReader[E] {
-  def scoreOf(blockId:        ModifierId): EitherT[Future, E, Int128]
-  def heightOf(blockId:       ModifierId): EitherT[Future, E, Int128]
-  def timestampOf(blockId:    ModifierId): EitherT[Future, E, Long]
-  def blockIdAtHeight(height: Long): EitherT[Future, E, ModifierId]
-  def difficultyOf(blockId:   ModifierId): EitherT[Future, E, Int128]
-  def bloomOf(blockId:        ModifierId): EitherT[Future, E, BloomFilter]
-  def parentIdOf(blockId:     ModifierId): EitherT[Future, E, ModifierId]
-  def bestBlockId(): EitherT[Future, E, ModifierId]
-  def bestBlock(): EitherT[Future, E, Block]
-  def contains(id: ModifierId): EitherT[Future, E, Boolean]
-}
-
-trait ChainStoreWriter[E] {
-  def update(block:          Block, isBest: Boolean): EitherT[Future, E, Unit]
-  def rollbackTo(modifierId: ModifierId): EitherT[Future, E, Unit]
-}
-
-class InMemoryChainStore(implicit system: ActorSystem[_])
-    extends ChainStoreReader[InMemoryChainStore.Error]
-    with ChainStoreWriter[InMemoryChainStore.Error] {
-
-  import system.executionContext
-
-  private val actor = system.systemActorOf(InMemoryChainStore.StoreActor(), "chain-store")
-
-  override def scoreOf(blockId: ModifierId): EitherT[Future, InMemoryChainStore.Error, Int128] =
-    currentBlocks().map(blocks =>
-      SemanticValidation
-        .takeWhileInclusive(blocks.toStream)(_.id != blockId)
-        .foldLeft(0: Int128)((score, b) => score + b.difficulty / 10000000000L)
-    )
-
-  override def heightOf(blockId: ModifierId): EitherT[Future, InMemoryChainStore.Error, Int128] =
-    currentBlocks().subflatMap(_.indexWhere(_.id == blockId) match {
-      case -1 => Left(InMemoryChainStore.BlockNotFound(blockId))
-      case i  => Right(i + 1)
-    })
-
-  override def timestampOf(blockId: ModifierId): EitherT[Future, InMemoryChainStore.Error, Long] =
-    findBlock(blockId).map(_.timestamp)
-
-  override def blockIdAtHeight(height: Long): EitherT[Future, InMemoryChainStore.Error, ModifierId] =
-    currentBlocks().subflatMap(_.lift(height.toInt + 1).toRight(InMemoryChainStore.HeightNotFound(height)))
-
-  override def difficultyOf(blockId: ModifierId): EitherT[Future, InMemoryChainStore.Error, Int128] =
-    findBlock(blockId).map(_.difficulty)
-
-  override def bloomOf(blockId: ModifierId): EitherT[Future, InMemoryChainStore.Error, BloomFilter] =
-    findBlock(blockId).map(_.bloomFilter)
-
-  override def parentIdOf(blockId: ModifierId): EitherT[Future, InMemoryChainStore.Error, ModifierId] =
-    findBlock(blockId).map(_.parentId)
-
-  override def bestBlockId(): EitherT[Future, InMemoryChainStore.Error, ModifierId] =
-    bestBlock().map(_.id)
-
-  override def bestBlock(): EitherT[Future, InMemoryChainStore.Error, Block] =
-    currentBlocks().subflatMap(_.lastOption.toRight(InMemoryChainStore.HeightNotFound(0)))
-
-  override def contains(id: ModifierId): EitherT[Future, InMemoryChainStore.Error, Boolean] =
-    currentBlocks().map(_.exists(_.id == id))
-
-  import akka.actor.typed.scaladsl.AskPattern._
-  import scala.concurrent.duration._
-  implicit private val timeout: Timeout = Timeout(1.seconds)
-
-  override def update(block: Block, isBest: Boolean): EitherT[Future, InMemoryChainStore.Error, Unit] =
-    EitherT(actor.ask(ref => InMemoryChainStore.StoreActor.Update(block, ref)))
-
-  override def rollbackTo(modifierId: ModifierId): EitherT[Future, InMemoryChainStore.Error, Unit] =
-    EitherT(actor.ask(ref => InMemoryChainStore.StoreActor.RollbackTo(modifierId, ref)))
-
-  private def currentBlocks(): EitherT[Future, InMemoryChainStore.Error, List[Block]] =
-    EitherT(actor.ask(ref => InMemoryChainStore.StoreActor.GetBlocks(ref)))
-
-  private def findBlock(modifierId: ModifierId): EitherT[Future, InMemoryChainStore.Error, Block] =
-    currentBlocks().subflatMap(blocks =>
-      blocks.find(_.id == modifierId).toRight(InMemoryChainStore.BlockNotFound(modifierId))
-    )
-}
-
-object InMemoryChainStore {
-  sealed abstract class Error
-  case class BlockNotFound(blockId: ModifierId) extends Error
-  case class HeightNotFound(height: Long) extends Error
-
-  private object StoreActor {
-    sealed abstract class Message
-
-    case class Update(block: Block, replyTo: ActorRef[Either[InMemoryChainStore.Error, Unit]]) extends Message
-
-    case class GetBlocks(replyTo: ActorRef[Either[InMemoryChainStore.Error, List[Block]]]) extends Message
-
-    case class RollbackTo(blockId: ModifierId, replyTo: ActorRef[Either[InMemoryChainStore.Error, Unit]])
-        extends Message
-
-    def apply(): Behavior[Message] = apply(State(Nil))
-
-    def apply(state: State): Behavior[Message] =
-      Behaviors.receiveMessage {
-        case Update(block, replyTo) =>
-          replyTo ! Right({})
-          apply(state.copy(state.blocks :+ block))
-
-        case GetBlocks(replyTo) =>
-          replyTo ! Right(state.blocks)
-          Behaviors.same
-        case RollbackTo(blockId, replyTo) =>
-          @tailrec
-          def rolledBack(blocks: List[Block]): List[Block] =
-            blocks match {
-              case Nil                            => Nil
-              case blocks :+ b if b.id == blockId => blocks
-              case _                              => rolledBack(blocks.init)
-            }
-          val updatedState = state.copy(rolledBack(state.blocks))
-          replyTo ! Right({})
-          apply(updatedState)
-      }
-
-    case class State(
-      blocks: List[Block]
-    )
   }
 }
