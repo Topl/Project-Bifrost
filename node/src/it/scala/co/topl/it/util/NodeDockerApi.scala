@@ -6,7 +6,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.Comparator
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class NodeDockerApi(containerId: String)(implicit dockerClient: DockerClient) {
 
@@ -55,12 +55,12 @@ case class NodeDockerApi(containerId: String)(implicit dockerClient: DockerClien
   def awaitContainerStart(): Unit = {
     var remainingAttempts = 10
     var ip = ipAddress()
-    while(ip.isEmpty && remainingAttempts > 0) {
+    while (ip.isEmpty && remainingAttempts > 0) {
       Thread.sleep(1000)
       ip = ipAddress()
       remainingAttempts -= 1
     }
-    if(ip.isEmpty) throw new IllegalStateException(s"Container IP not found.  containerId=$containerId")
+    if (ip.isEmpty) throw new IllegalStateException(s"Container IP not found.  containerId=$containerId")
   }
 
 }

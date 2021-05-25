@@ -3,9 +3,8 @@ package co.topl.storage.kv
 import akka.Done
 import akka.actor.ActorSystem
 import akka.dispatch.Dispatchers
-import cats.data.{EitherT, OptionT}
+import cats.data._
 import cats.implicits._
-import co.topl.storage.kv.IODBKeyValueStorage.DecodeFailure
 import co.topl.utils.IdiomaticScalaTransition.implicits.toValidatedOps
 import co.topl.utils.codecs._
 import co.topl.utils.codecs.implicits._
@@ -25,8 +24,6 @@ class IODBKeyValueStorage[Version, Key, Value](storage: LSMStore, cacheExpire: D
   versionAsBytes:                                       AsBytes[Any, Version],
   keyAsBytes:                                           AsBytes[Any, Key],
   valueAsBytes:                                         AsBytes[Any, Value],
-  versionFromBytes:                                     FromBytes[Any, Version],
-  keyFromBytes:                                         FromBytes[Any, Key],
   valueFromBytes:                                       FromBytes[Any, Value]
 ) extends KeyValueStorage[Version, Key, Value] {
 
@@ -68,28 +65,41 @@ class IODBKeyValueStorage[Version, Key, Value](storage: LSMStore, cacheExpire: D
       )
     } yield value
 
-  override def put(version: Array[Byte])(
-    items:                  (Array[Byte], Array[Byte])*
-  ): EitherT[Future, KeyValueStorage.Error, Done] = {
-    items.foreach { case (key, value) => scPut(toCacheKey(key))(value, ttl = Some(cacheExpire)) }
-
-    EitherT(
-      blockingOperation(
-        storage.update(
-          ByteArrayWrapper(version),
-          Nil,
-          items.map { case (key, value) => ByteArrayWrapper(key) -> ByteArrayWrapper(value) }
+  override def put(version: Version)(
+    items:                  (Key, Value)*
+  ): EitherT[Future, KeyValueStorage.Error, Done] =
+    for {
+      cachableItems <- EitherT.fromEither[Future](items.toList.traverse { case (key, value) =>
+        toCacheKey(key).map(_ -> value)
+      })
+      storableItems <- EitherT
+        .fromEither[Future](items.toList.traverse { case (key, value) =>
+          key.encodeAsBytes.toEither.flatMap(k =>
+            value.encodeAsBytes.toEither.map(v => ByteArrayWrapper(k) -> ByteArrayWrapper(v))
+          )
+        })
+        .leftMap(e => KeyValueStorage.DomainError(IODBKeyValueStorage.EncodeFailure(e.head)): KeyValueStorage.Error)
+      versionBytes <- EitherT
+        .fromEither[Future](version.encodeAsBytes.toEither)
+        .leftMap(e => KeyValueStorage.DomainError(IODBKeyValueStorage.EncodeFailure(e.head)): KeyValueStorage.Error)
+      _ = cachableItems.foreach { case (key, value) => scPut(key)(value, ttl = Some(cacheExpire)) }
+      result <- EitherT(
+        blockingOperation(
+          storage.update(
+            ByteArrayWrapper(versionBytes),
+            Nil,
+            storableItems
+          )
         )
+          .map(_ => Right(Done))
+          .recover { case e => Left(KeyValueStorage.ExceptionError(e): KeyValueStorage.Error) }
       )
-        .map(_ => Right(Done))
-        .recover { case e => Left(KeyValueStorage.ExceptionError(e)) }
-    )
-  }
+    } yield result
 
-  override def delete(version: Array[Byte])(keys: Array[Byte]*): EitherT[Future, KeyValueStorage.Error, Done] =
+  override def delete(version: Version)(keys: Key*): EitherT[Future, KeyValueStorage.Error, Done] =
     EitherT.leftT(KeyValueStorage.ExceptionError(new UnsupportedOperationException))
 
-  override def contains(key: Array[Byte]): EitherT[Future, KeyValueStorage.Error, Boolean] =
+  override def contains(key: Key): EitherT[Future, KeyValueStorage.Error, Boolean] =
     get(key)
       .map(_ => true)
       .leftFlatMap {
@@ -97,14 +107,22 @@ class IODBKeyValueStorage[Version, Key, Value](storage: LSMStore, cacheExpire: D
         case e                           => EitherT.leftT(e)
       }
 
-  override def rollbackTo(version: Array[Byte]): EitherT[Future, KeyValueStorage.Error, Done] =
-    EitherT(
-      cache
-        .removeAll()
-        .flatMap(_ => blockingOperation(storage.rollback(ByteArrayWrapper(version))))
-        .map(_ => Right(Done))
-        .recover { case e => Left(KeyValueStorage.ExceptionError(e)) }
-    )
+  override def rollbackTo(version: Version): EitherT[Future, KeyValueStorage.Error, Done] =
+    EitherT
+      .fromEither[Future](version.encodeAsBytes.toEither)
+      .leftMap(e => KeyValueStorage.DomainError(IODBKeyValueStorage.EncodeFailure(e.head)): KeyValueStorage.Error)
+      .flatMap(versionBytes =>
+        EitherT(
+          cache
+            .removeAll()
+            .flatMap(_ => blockingOperation(storage.rollback(ByteArrayWrapper(versionBytes))))
+            .map(_ => Right(Done))
+            .recover { case e => Left(KeyValueStorage.ExceptionError(e)) }
+        )
+      )
+
+  override def close(): EitherT[Future, KeyValueStorage.Error, Done] =
+    EitherT.liftF[Future, KeyValueStorage.Error, Done](blockingOperation(storage.close()).map(_ => Done))
 
   private def blockingOperation[R](f: => R): Future[R] =
     Future(f)(blockingExecutionContext)

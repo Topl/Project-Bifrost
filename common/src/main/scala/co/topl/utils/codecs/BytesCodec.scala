@@ -24,7 +24,7 @@ import scala.language.implicitConversions
  *                         never expected to fail, you may specify `Infallible` as the type which grants access to
  *                         a helper operation for direct encoding without validation
  */
-trait AsBytes[EncodingFailure, Decoded] {
+trait AsBytes[+EncodingFailure, -Decoded] {
   def encode(decoded: Decoded): ValidatedNec[EncodingFailure, Array[Byte]]
 }
 
@@ -89,7 +89,7 @@ object AsBytes {
  *                         never expected to fail, you may specify `Infallible` as the type which grants access to
  *                         a helper operation for direct decoding without validation
  */
-trait FromBytes[DecodeFailure, Decoded] {
+trait FromBytes[+DecodeFailure, Decoded] {
   def decode(encoded: Array[Byte]): ValidatedNec[DecodeFailure, Decoded]
 }
 

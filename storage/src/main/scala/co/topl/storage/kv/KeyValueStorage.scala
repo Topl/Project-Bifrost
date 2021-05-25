@@ -25,6 +25,11 @@ trait KeyValueStorage[Version, Key, Value] {
   def contains(key: Key): EitherT[Future, KeyValueStorage.Error, Boolean]
 
   def rollbackTo(version: Version): EitherT[Future, KeyValueStorage.Error, Done]
+
+  /**
+   * Stop/cleanup/close this KeyValueStorage
+   */
+  def close(): EitherT[Future, KeyValueStorage.Error, Done]
 }
 
 object KeyValueStorage {

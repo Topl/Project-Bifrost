@@ -13,7 +13,9 @@ import scorex.crypto.hash.Blake2b256
 import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
 
-class KVChainStore(keyValueStorage: KeyValueStorage)(implicit ec: ExecutionContext) extends ChainStore {
+class KVChainStore(keyValueStorage: KeyValueStorage[Array[Byte], Array[Byte], Array[Byte]])(implicit
+  ec:                               ExecutionContext
+) extends ChainStore {
 
   final private val BestBlockIdKey = Array.fill(32)(-1: Byte)
 
@@ -41,7 +43,7 @@ class KVChainStore(keyValueStorage: KeyValueStorage)(implicit ec: ExecutionConte
     keyValueStorage
       .get(heightKey(height))
       .leftMap {
-        case _: KeyValueStorage.NotFound => ChainStore.HeightNotFound(height): ChainStore.Error
+        case KeyValueStorage.NotFound(_) => ChainStore.HeightNotFound(height): ChainStore.Error
         case e                           => ChainStore.DomainChainStoreError(e): ChainStore.Error
       }
       .subflatMap(ModifierId.parseBytes(_).toEither.leftMap(ChainStore.ExceptionError(_): ChainStore.Error))
@@ -50,7 +52,7 @@ class KVChainStore(keyValueStorage: KeyValueStorage)(implicit ec: ExecutionConte
     keyValueStorage
       .get(blockId.getIdBytes)
       .leftMap {
-        case _: KeyValueStorage.NotFound => ChainStore.ModifierNotFound(blockId): ChainStore.Error
+        case KeyValueStorage.NotFound(_) => ChainStore.ModifierNotFound(blockId): ChainStore.Error
         case e                           => ChainStore.DomainChainStoreError(e): ChainStore.Error
       }
       .subflatMap(BlockSerializer.parseBytes(_).toEither.leftMap(ChainStore.ExceptionError(_): ChainStore.Error))
@@ -71,8 +73,11 @@ class KVChainStore(keyValueStorage: KeyValueStorage)(implicit ec: ExecutionConte
 
   override def update(block: Block, isBest: Boolean): EitherT[Future, ChainStore.Error, Done] =
     entriesForUpdate(block, isBest)
-      .flatMap(keyValueStorage.put(version = block.id.bytes)(_: _*))
-      .leftMap(e => ChainStore.DomainChainStoreError(e): ChainStore.Error)
+      .flatMap(
+        keyValueStorage
+          .put(version = block.id.bytes)(_: _*)
+          .leftMap(e => ChainStore.DomainChainStoreError(e): ChainStore.Error)
+      )
 
   override def rollbackTo(modifierId: ModifierId): EitherT[Future, ChainStore.Error, Done] =
     keyValueStorage
@@ -83,7 +88,7 @@ class KVChainStore(keyValueStorage: KeyValueStorage)(implicit ec: ExecutionConte
     keyValueStorage
       .get(prefixedKey(prefix, modifierId))
       .leftMap {
-        case _: KeyValueStorage.NotFound => ChainStore.ModifierNotFound(modifierId): ChainStore.Error
+        case KeyValueStorage.NotFound(_) => ChainStore.ModifierNotFound(modifierId): ChainStore.Error
         case e                           => ChainStore.DomainChainStoreError(e): ChainStore.Error
       }
 

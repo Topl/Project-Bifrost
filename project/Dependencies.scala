@@ -43,6 +43,11 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-http-testkit"   % akkaHttpVersion % Test
   )
 
+  val akkaTyped = Seq(
+    "com.typesafe.akka" %% "akka-actor-typed"         % akkaVersion,
+    "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test
+  )
+
   val network = Seq(
     "org.bitlet"  % "weupnp"      % "0.1.4",
     "commons-net" % "commons-net" % "3.8.0"
@@ -118,7 +123,7 @@ object Dependencies {
   }
 
   lazy val storage: Seq[ModuleID] =
-    akka ++ cache
+    Seq("net.jpountz.lz4" % "lz4" % "1.3.0") ++ akka ++ akkaTyped ++ cache ++ test
 
   lazy val chainProgram: Seq[ModuleID] =
     Seq(

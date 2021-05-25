@@ -164,6 +164,7 @@ lazy val bifrost = project.in(file("."))
   .aggregate(
     node,
     common,
+    storage,
     akkaHttpRpc,
     toplRpc,
     gjallarhorn,
