@@ -19,7 +19,7 @@ package object state {
 
     // this works by updating the underlying storage object directly and ignoring the updated state instance
     state.applyChanges(version, boxSC) match {
-      case Success(_)  => Unit
+      case Success(_)  => ()
       case Failure(ex) => throw ex
     }
   }
@@ -37,7 +37,7 @@ package object state {
     /** This works by updating the underlying storage object directly and ignoring the updated state instance */
     directlyAddStateStorage(version, boxes, state)
     state.pbrOpt.get.update(version, pbrSC.toRemove, pbrSC.toUpdate) match {
-      case Success(_)  => Unit
+      case Success(_)  => ()
       case Failure(ex) => throw ex
     }
   }
@@ -57,7 +57,7 @@ package object state {
     /** This works by updating the underlying storage object directly and ignoring the updated state instance */
     directlyAddStateStorage(version, boxes, state)
     state.tbrOpt.get.update(version, tbrSC.toRemove, tbrSC.toAppend) match {
-      case Success(_)  => Unit
+      case Success(_)  => ()
       case Failure(ex) => throw ex
     }
   }

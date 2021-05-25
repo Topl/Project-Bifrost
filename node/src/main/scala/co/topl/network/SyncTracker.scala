@@ -117,7 +117,7 @@ class SyncTracker(
         val elders = statuses.filter(_._2 == Older).keys.toIndexedSeq
         val nonOutdated =
           (if (elders.nonEmpty) elders(scala.util.Random.nextInt(elders.size)) +: unknowns else unknowns) ++ forks
-        nonOutdated.filter(p => (timeProvider.time - lastSyncSentTime.getOrElse(p, 0L)).millis >= minInterval)
+        nonOutdated.filter(p => (timeProvider.time - lastSyncSentTime.getOrElse(p, 0L)).millis >= minInterval())
       }
 
     peers.foreach(updateLastSyncSentTime)

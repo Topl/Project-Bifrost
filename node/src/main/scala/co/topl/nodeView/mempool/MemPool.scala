@@ -89,7 +89,7 @@ case class MemPool(private val unconfirmed: TrieMap[ModifierId, UnconfirmedTx[Tr
    * @return
    */
   override def filter(condition: TX => Boolean): MemPool = {
-    unconfirmed.retain { (_, v) =>
+    unconfirmed.filterInPlace { (_, v) =>
       if (condition(v.tx)) {
         true
       } else {

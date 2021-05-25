@@ -140,7 +140,7 @@ object BlockProcessor extends Logging {
       val cacheBlock = CacheBlock(block, prevTimes)
 
       log.debug(s"Added new block to chain cache: ${cacheBlock.block.id.toString}")
-      ChainCache(cache.insert(cacheBlock, block.parentId))
+      ChainCache(cache.updated(cacheBlock, block.parentId))
     }
 
     def dropUntil(height: Long): ChainCache =

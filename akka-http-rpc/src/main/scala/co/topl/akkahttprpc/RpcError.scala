@@ -112,7 +112,7 @@ object ThrowableData {
       override def message: Option[String] = Option(throwable.getMessage)
 
       override def stackTrace: Option[NonEmptyChain[String]] =
-        NonEmptyChain.fromSeq(throwable.getStackTrace.map(_.toString))
+        NonEmptyChain.fromSeq(throwable.getStackTrace.toIndexedSeq.map(_.toString))
     }
 
   def apply(m: Option[String], s: Option[NonEmptyChain[String]]): ThrowableData =

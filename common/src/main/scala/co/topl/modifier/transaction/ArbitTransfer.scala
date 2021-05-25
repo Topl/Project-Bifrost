@@ -13,6 +13,7 @@ import io.circe.{Decoder, Encoder, HCursor}
 
 import java.time.Instant
 import scala.util.Try
+import scala.Iterable
 
 case class ArbitTransfer[
   P <: Proposition: EvidenceProducer: Identifiable
@@ -26,21 +27,21 @@ case class ArbitTransfer[
   override val minting:     Boolean
 ) extends TransferTransaction[SimpleValue, P](from, to, attestation, fee, timestamp, data, minting) {
 
-  override val coinOutput: Traversable[ArbitBox] =
+  override val coinOutput: Iterable[ArbitBox] =
     coinOutputParams.map { case BoxParams(evi, nonce, value) =>
       ArbitBox(evi, nonce, value)
     }
 
-  override val newBoxes: Traversable[TokenBox[SimpleValue]] = {
+  override val newBoxes: Iterable[TokenBox[SimpleValue]] = {
     // this only creates an output if the value of the output boxes is non-zero
-    val recipientCoinOutput: Traversable[ArbitBox] = coinOutput.filter(_.value.quantity > 0)
+    val recipientCoinOutput: Iterable[ArbitBox] = coinOutput.filter(_.value.quantity > 0)
     val hasRecipientOutput: Boolean = recipientCoinOutput.nonEmpty
     val hasFeeChangeOutput: Boolean = feeChangeOutput.value.quantity > 0
 
     (hasRecipientOutput, hasFeeChangeOutput) match {
-      case (false, _)    => Traversable()
+      case (false, _)    => Iterable()
       case (true, false) => recipientCoinOutput
-      case (true, true)  => Traversable(feeChangeOutput) ++ recipientCoinOutput
+      case (true, true)  => Iterable(feeChangeOutput) ++ recipientCoinOutput
     }
   }
 }

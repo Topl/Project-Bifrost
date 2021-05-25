@@ -2,6 +2,7 @@ package co.topl.modifier.box
 
 import co.topl.attestation.EvidenceProducer.Syntax.ProducerOps
 import co.topl.attestation.{Address, EvidenceProducer, Proof, Proposition}
+import scala.Iterable
 
 sealed abstract class Unlocker[P <: Proposition]
 
@@ -25,7 +26,7 @@ object BoxUnlocker {
   def generate[P <: Proposition: EvidenceProducer, PR <: Proof[P]](
     from:        Seq[(Address, Box.Nonce)],
     attestation: Map[P, PR]
-  ): Traversable[BoxUnlocker[P, PR]] = {
+  ): Iterable[BoxUnlocker[P, PR]] = {
 
     val evidence = attestation.keys.map { prop =>
       prop.generateEvidence -> prop
@@ -47,7 +48,7 @@ object BoxUnlocker {
     boxIds: Seq[BoxId],
     prop:   P,
     proof:  PR
-  ): Traversable[BoxUnlocker[P, PR]] =
+  ): Iterable[BoxUnlocker[P, PR]] =
     boxIds.map(new BoxUnlocker[P, PR](_, prop, proof))
 
 }

@@ -237,7 +237,7 @@ object BifrostApp extends Logging {
   ////////////////////////////////////////////////////////////////////////////////////
   //////////////////////////////// METHOD DEFINITIONS ////////////////////////////////
 
-  def main(args: Array[String]): Unit = ParserForClass[StartupOpts].constructEither(args) match {
+  def main(args: Array[String]): Unit = ParserForClass[StartupOpts].constructEither(args.toIndexedSeq) match {
     case Right(parsedArgs) => new BifrostApp(parsedArgs).run()
     case Left(e)           => throw new Exception(e)
   }

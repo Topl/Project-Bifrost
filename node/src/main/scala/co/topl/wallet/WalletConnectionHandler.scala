@@ -57,7 +57,7 @@ class WalletConnectionHandler[
 
     case msg: String => handleMsgFromRemote(msg)
 
-    case GetRemoteWalletRef => sender ! remoteWalletActor
+    case GetRemoteWalletRef => sender() ! remoteWalletActor
 
     case SemanticallySuccessfulModifier(block: Block) => handleNewBlock(block)
 
@@ -107,7 +107,7 @@ class WalletConnectionHandler[
       remoteWalletActor = None
       remoteWalletAddresses = None
       log.info(s"The remote wallet ${sender()} has been removed from the WalletConnectionHandler in Bifrost")
-      sender ! s"The remote wallet ${sender()} has been removed from the WalletConnectionHandler in Bifrost"
+      sender() ! s"The remote wallet ${sender()} has been removed from the WalletConnectionHandler in Bifrost"
     }
 
     if (msg.contains("request from gjallarhorn:")) {

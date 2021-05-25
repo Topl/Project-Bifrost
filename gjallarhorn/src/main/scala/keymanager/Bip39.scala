@@ -137,7 +137,7 @@ object Bip39 {
 
     // open the specified file
     val wordList = Try(Source.fromFile(phraseListDir + iso639_1_toFile(phraseLanguage.toLowerCase))) match {
-      case Success(file) => file.getLines.toList
+      case Success(file) => file.getLines().toList
       case Failure(ex)   => throw ex
     }
 

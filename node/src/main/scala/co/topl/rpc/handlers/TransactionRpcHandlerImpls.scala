@@ -85,7 +85,7 @@ class TransactionRpcHandlerImpls(
     createRaw(
       state,
       params.recipients.toNonEmptyVector.toVector,
-      senderAddresses.to[IndexedSeq],
+      senderAddresses.toIndexedSeq,
       params.changeAddress,
       params.consolidationAddress,
       params.fee,
@@ -110,7 +110,7 @@ class TransactionRpcHandlerImpls(
     createRaw(
       state,
       params.recipients.map { case (address, amount) => address -> SimpleValue(amount) }.toNonEmptyVector.toVector,
-      senderAddresses.to[IndexedSeq],
+      senderAddresses.toIndexedSeq,
       params.changeAddress,
       params.consolidationAddress,
       params.fee,
@@ -137,7 +137,7 @@ class TransactionRpcHandlerImpls(
     f(
       state,
       params.recipients.map { case (address, v) => address -> SimpleValue(v) }.toNonEmptyVector.toVector,
-      senderAddresses.to[IndexedSeq],
+      senderAddresses.toIndexedSeq,
       params.changeAddress,
       params.fee,
       params.data

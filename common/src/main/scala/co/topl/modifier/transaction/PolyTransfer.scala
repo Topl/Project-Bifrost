@@ -13,6 +13,7 @@ import io.circe.{Decoder, Encoder, HCursor}
 
 import java.time.Instant
 import scala.util.Try
+import scala.Iterable
 
 case class PolyTransfer[
   P <: Proposition: EvidenceProducer: Identifiable
@@ -26,22 +27,22 @@ case class PolyTransfer[
   override val minting:     Boolean
 ) extends TransferTransaction[SimpleValue, P](from, to, attestation, fee, timestamp, data, minting) {
 
-  override val coinOutput: Traversable[PolyBox] =
+  override val coinOutput: Iterable[PolyBox] =
     coinOutputParams.map { case BoxParams(evi, nonce, value) =>
       PolyBox(evi, nonce, value)
     }
 
-  override val newBoxes: Traversable[TokenBox[SimpleValue]] = {
+  override val newBoxes: Iterable[TokenBox[SimpleValue]] = {
     // this only creates an output if the value of the output boxes is non-zero
-    val recipientCoinOutput: Traversable[PolyBox] = coinOutput.filter(_.value.quantity > 0)
+    val recipientCoinOutput: Iterable[PolyBox] = coinOutput.filter(_.value.quantity > 0)
     val hasRecipientOutput: Boolean = recipientCoinOutput.nonEmpty
     val hasFeeChangeOutput: Boolean = feeChangeOutput.value.quantity > 0
 
     (hasRecipientOutput, hasFeeChangeOutput) match {
-      case (false, false) => Traversable()
-      case (false, true)  => Traversable(feeChangeOutput) // JAA - only possible because this is Poly TX
+      case (false, false) => Iterable()
+      case (false, true)  => Iterable(feeChangeOutput) // JAA - only possible because this is Poly TX
       case (true, false)  => recipientCoinOutput
-      case (true, true)   => Traversable(feeChangeOutput) ++ recipientCoinOutput
+      case (true, true)   => Iterable(feeChangeOutput) ++ recipientCoinOutput
     }
   }
 }

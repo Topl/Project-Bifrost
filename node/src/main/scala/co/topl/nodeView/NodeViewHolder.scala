@@ -84,7 +84,7 @@ class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit ec:
     System.exit(100) // this actor shouldn't be restarted at all so kill the whole app if that happened
   }
 
-  override def postStop: Unit = {
+  override def postStop(): Unit = {
     log.info(s"${Console.RED}Application is going down NOW!${Console.RESET}")
     nodeView._1.closeStorage() // close History storage
     nodeView._2.closeStorage() // close State storage

@@ -40,24 +40,24 @@ class KeyManager(settings: ApplicationSettings) extends Actor with Logging {
     case ImportKeyfile(password: String, mnemonic: String, lang: String) =>
       shareNewKey(keyRing.importPhrase(password, mnemonic, lang), sender())
 
-    case UnlockKeyFile(addressString, password) => sender ! keyRing.unlockKeyFile(addressString, password)
+    case UnlockKeyFile(addressString, password) => sender() ! keyRing.unlockKeyFile(addressString, password)
 
-    case LockKeyFile(addressString) => sender ! keyRing.lockKeyFile(addressString)
+    case LockKeyFile(addressString) => sender() ! keyRing.lockKeyFile(addressString)
 
-    case GetOpenKeyfiles => sender ! keyRing.addresses
+    case GetOpenKeyfiles => sender() ! keyRing.addresses
 
-    case GetAllKeyfiles => sender ! keyRing.listKeyFilesAndStatus
+    case GetAllKeyfiles => sender() ! keyRing.listKeyFilesAndStatus
 
     case SignTx(tx: Json, keys: IndexedSeq[Address], msg: String) =>
       val newTx = signTx(tx, keys, msg)
-      sender ! Map("tx" -> newTx).asJson
+      sender() ! Map("tx" -> newTx).asJson
 
     case GenerateSignatures(keys: IndexedSeq[Address], msg: String) =>
-      sender ! Map("signatures" -> createSignatures(keys, msg)).asJson
+      sender() ! Map("signatures" -> createSignatures(keys, msg)).asJson
 
-    case ChangeNetwork(networkName: String) => sender ! switchNetwork(networkName)
+    case ChangeNetwork(networkName: String) => sender() ! switchNetwork(networkName)
 
-    case GetKeyfileDir => sender ! Map("keyfileDirectory" -> keyRing.getNetworkDir.getAbsolutePath).asJson
+    case GetKeyfileDir => sender() ! Map("keyfileDirectory" -> keyRing.getNetworkDir.getAbsolutePath).asJson
 
     case ChangeKeyfileDir(dir: String) =>
       updateConfigFile("keyFileDir", settings.keyFileDir, dir)
@@ -68,7 +68,7 @@ class KeyManager(settings: ApplicationSettings) extends Actor with Logging {
         PrivateKeyCurve25519.secretGenerator,
         networkPrefix = networkPrefix
       )
-      sender ! Map("newDirectory" -> settings.keyFileDir).asJson
+      sender() ! Map("newDirectory" -> settings.keyFileDir).asJson
   }
 
   /**

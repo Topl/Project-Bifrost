@@ -171,7 +171,8 @@ class TransferTransactionSemanticallyValidatable[T <: TokenValueHolder, P <: Pro
     sumOfPolyInputs:                                     Int128
   ): ValidatedNec[SemanticValidationFailure, TransferTransaction[T, P]] =
     takeWhileInclusive(
-      inputBoxes.toStream
+      inputBoxes
+        .to(LazyList)
         .map {
           case (unlocker, Some(box: TokenBox[_])) if unlocker.boxKey.isValid(unlocker.proposition, tx.messageToSign) =>
             Right(box.value.quantity)
@@ -213,7 +214,7 @@ object SemanticValidation {
   /**
    * Similar to Iterable#takeWhile, but the first item that fails the condition will be kept instead of discarded
    */
-  def takeWhileInclusive[A](items: Stream[A])(cond: A => Boolean): Stream[A] = {
+  def takeWhileInclusive[A](items: LazyList[A])(cond: A => Boolean): LazyList[A] = {
     var foundFailure: Boolean = false
     items.takeWhile { t =>
       if (foundFailure) false

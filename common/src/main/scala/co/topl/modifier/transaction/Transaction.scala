@@ -22,7 +22,7 @@ abstract class Transaction[+T, P <: Proposition](implicit val identifiableEv: Id
 
   val boxIdsToOpen: IndexedSeq[BoxId]
 
-  val newBoxes: Traversable[Box[T]]
+  val newBoxes: Iterable[Box[T]]
 
   val attestation: Map[P, Proof[P]]
 

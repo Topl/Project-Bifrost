@@ -86,13 +86,13 @@ class WalletManager(keyManagerRef: ActorRef)(implicit ec: ExecutionContext) exte
 
   private def operational: Receive = {
     case msg: String => msgHandling(msg)
-    case GetNewBlock => sender ! newestTransactions
+    case GetNewBlock => sender() ! newestTransactions
     case DisconnectFromBifrost =>
       bifrostActorRef match {
         case Some(actor) =>
           //tell bifrost that this wallet is disconnecting (going offline)
           val response: String = Await.result((actor ? "Remote wallet actor stopped").mapTo[String], 10.seconds)
-          sender ! response
+          sender() ! response
 
           //set the bifrost actor ref to None to put gjallarhorn in offline mode
           bifrostActorRef = None
@@ -101,9 +101,9 @@ class WalletManager(keyManagerRef: ActorRef)(implicit ec: ExecutionContext) exte
   }
 
   private def walletManagement: Receive = {
-    case UpdateWallet(updatedBoxes) => sender ! parseAndUpdate(updatedBoxes)
-    case GetWallet                  => sender ! walletBoxes
-    case GetConnection              => sender ! bifrostActorRef
+    case UpdateWallet(updatedBoxes) => sender() ! parseAndUpdate(updatedBoxes)
+    case GetWallet                  => sender() ! walletBoxes
+    case GetConnection              => sender() ! bifrostActorRef
     case NewKey(address)            =>
       //add new key to walletBoxes
       walletBoxes.put(address, MMap.empty)

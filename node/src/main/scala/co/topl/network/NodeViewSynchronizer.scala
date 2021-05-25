@@ -94,12 +94,6 @@ class NodeViewSynchronizer[
     context.system.eventStream.subscribe(self, classOf[ModificationOutcome])
     context.system.eventStream.subscribe(self, classOf[DownloadRequest])
     context.system.eventStream.subscribe(self, classOf[ModifiersProcessingResult[PMOD]])
-
-    /** instantiate the internal NodeViewSynchronizer state for History and Mempool */
-    viewHolderRef ! GetNodeViewChanges(history = true, state = false, mempool = true)
-
-    /** schedules a SendLocalSyncInfo message to be sent at a fixed interval */
-    statusTracker.scheduleSendSyncInfo()
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -118,9 +112,17 @@ class NodeViewSynchronizer[
     nonsense
 
   // ----------- MESSAGE PROCESSING FUNCTIONS ----------- //
-  private def initialization(): Receive = { case NodeViewReady(_) =>
+  private def initialization: Receive = { case NodeViewReady(_) =>
     log.info(s"${Console.YELLOW}NodeViewSynchronizer transitioning to the operational state${Console.RESET}")
-    context become operational
+
+    /** instantiate the internal NodeViewSynchronizer state for History and Mempool */
+    viewHolderRef ! GetNodeViewChanges(history = true, state = false, mempool = true)
+
+    /** schedules a SendLocalSyncInfo message to be sent at a fixed interval */
+    statusTracker.scheduleSendSyncInfo()
+
+    /** set the state of the actor */
+    context.become(operational)
   }
 
   protected def processSyncStatus: Receive = {
@@ -356,7 +358,7 @@ class NodeViewSynchronizer[
     status: HistoryComparisonResult,
     ext:    Seq[(ModifierTypeId, ModifierId)]
   ): Unit =
-    ext.groupBy(_._2.getModType).mapValues(_.map(_._2)).foreach { case (mid, mods) =>
+    ext.groupBy(_._2.getModType).view.mapValues(_.map(_._2)).foreach { case (mid, mods) =>
       val msg = Message(invSpec, Right(InvData(mid, mods)), None)
       networkControllerRef ! SendToNetwork(msg, SendToPeer(remote))
     }

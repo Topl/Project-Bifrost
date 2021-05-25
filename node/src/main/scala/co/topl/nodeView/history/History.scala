@@ -129,8 +129,10 @@ class History(
           (new History(storage, fullBlockProcessor, validators), progInfo)
         }
       }
-      log.info(s"block ${block.id} appended to parent ${block.parentId} with score ${storage.scoreOf(block.id)}.")
-      // return result
+      log.info(
+        s"${Console.CYAN} Block ${block.id} appended to parent ${block.parentId} at height ${block.height} with score ${storage
+          .scoreOf(block.id)}.${Console.RESET}"
+      )
       res
 
     } else {
