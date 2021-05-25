@@ -3,8 +3,12 @@ package co.topl.storage.kv
 import akka.Done
 import akka.actor.ActorSystem
 import akka.dispatch.Dispatchers
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import cats.implicits._
+import co.topl.storage.kv.IODBKeyValueStorage.DecodeFailure
+import co.topl.utils.IdiomaticScalaTransition.implicits.toValidatedOps
+import co.topl.utils.codecs._
+import co.topl.utils.codecs.implicits._
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 import scalacache.caffeine._
@@ -16,36 +20,53 @@ import java.util.NoSuchElementException
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-class IODBKeyValueStorage(storage: LSMStore, cacheExpire: Duration, cacheSize: Int)(implicit system: ActorSystem)
-    extends KeyValueStorage {
+class IODBKeyValueStorage[Version, Key, Value](storage: LSMStore, cacheExpire: Duration, cacheSize: Int)(implicit
+  system:                                               ActorSystem,
+  versionAsBytes:                                       AsBytes[Any, Version],
+  keyAsBytes:                                           AsBytes[Any, Key],
+  valueAsBytes:                                         AsBytes[Any, Value],
+  versionFromBytes:                                     FromBytes[Any, Version],
+  keyFromBytes:                                         FromBytes[Any, Key],
+  valueFromBytes:                                       FromBytes[Any, Value]
+) extends KeyValueStorage[Version, Key, Value] {
 
   import system.dispatcher
 
   private val blockingExecutionContext: ExecutionContext =
     system.dispatchers.lookup(Dispatchers.DefaultBlockingDispatcherId)
 
-  implicit private val cache: CaffeineCache[Array[Byte]] = {
-    val underlying = Caffeine.newBuilder().maximumSize(cacheSize).build[String, Entry[Array[Byte]]]
+  implicit private val cache: CaffeineCache[Value] = {
+    val underlying = Caffeine.newBuilder().maximumSize(cacheSize).build[String, Entry[Value]]
     CaffeineCache(underlying)
   }
 
-  override def get(key: Array[Byte]): EitherT[Future, KeyValueStorage.Error, Array[Byte]] =
-    EitherT(
-      cachingF(toCacheKey(key))(ttl = Some(cacheExpire))(
-        blockingOperation(
-          storage.get(ByteArrayWrapper(key)).map(_.data)
+  override def get(key: Key): EitherT[Future, KeyValueStorage.Error, Value] =
+    for {
+      cacheKey <- EitherT.fromEither[Future](toCacheKey(key))
+      storageKey <- EitherT.fromEither[Future](
+        key.encodeAsBytes.toEither
+          .leftMap(errors =>
+            KeyValueStorage.DomainError(IODBKeyValueStorage.EncodeFailure(errors.head)): KeyValueStorage.Error
+          )
+          .map(ByteArrayWrapper(_))
+      )
+      value <- EitherT(
+        cachingF(cacheKey)(ttl = Some(cacheExpire))(
+          OptionT(blockingOperation(storage.get(storageKey)))
+            .map(_.data.decodeTo[Any, Value].getOrThrow())
+            .value
+            .flatMap {
+              case Some(value) => Future.successful(value)
+              case _           => Future.failed(new NoSuchElementException)
+            }
         )
-          .flatMap {
-            case Some(bytes) => Future.successful(bytes)
-            case _           => Future.failed(new NoSuchElementException)
+          .map(v => Right(v))
+          .recover {
+            case _: NoSuchElementException => Left(KeyValueStorage.NotFound(key): KeyValueStorage.Error)
+            case t                         => Left(KeyValueStorage.ExceptionError(t): KeyValueStorage.Error)
           }
       )
-        .map(v => Right(v))
-        .recover {
-          case _: NoSuchElementException => Left(KeyValueStorage.NotFound(key))
-          case t                         => Left(KeyValueStorage.ExceptionError(t))
-        }
-    )
+    } yield value
 
   override def put(version: Array[Byte])(
     items:                  (Array[Byte], Array[Byte])*
@@ -88,6 +109,16 @@ class IODBKeyValueStorage(storage: LSMStore, cacheExpire: Duration, cacheSize: I
   private def blockingOperation[R](f: => R): Future[R] =
     Future(f)(blockingExecutionContext)
 
-  private def toCacheKey(bytes: Array[Byte]): String =
-    Base58.encode(bytes)
+  private def toCacheKey(key: Key): Either[KeyValueStorage.Error, String] =
+    key.encodeAsBytes.toEither
+      .leftMap(failures =>
+        KeyValueStorage.DomainError(IODBKeyValueStorage.EncodeFailure(failures.head)): KeyValueStorage.Error
+      )
+      .map(Base58.encode)
+}
+
+object IODBKeyValueStorage {
+  sealed abstract class Error
+  case class EncodeFailure[Failure](failure: Failure) extends Error
+  case class DecodeFailure[Failure](failure: Failure) extends Error
 }
