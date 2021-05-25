@@ -1,4 +1,4 @@
-package co.topl.utils
+package co.topl.utils.codecs
 
 import cats.Eq
 import cats.data.{Validated, ValidatedNec}
@@ -30,7 +30,7 @@ trait AsBytes[EncodingFailure, Decoded] {
 
 object AsBytes {
 
-  def infallible[Decoded](f: Decoded => Array[Byte]): AsBytes[Infallible, Decoded] =
+  def infallible[Decoded](f: Decoded => Array[Byte]): InfallibleAsBytes[Decoded] =
     f(_).validNec[Infallible]
 
   class Ops[T](val instance: T) extends AnyVal {
@@ -45,7 +45,7 @@ object AsBytes {
      * @param encoder An infallible encoder.  Not all encoders are infallible.  Use #encodeAsBytes for fallible encoders.
      * @return a byte array
      */
-    def infalliblyEncodeAsBytes(implicit encoder: AsBytes[Infallible, T]): Array[Byte] =
+    def infalliblyEncodeAsBytes(implicit encoder: InfallibleAsBytes[T]): Array[Byte] =
       encoder.encode(instance) match {
         case Validated.Valid(a)   => a
         case Validated.Invalid(e) => throw new IllegalStateException(s"Infallible encoder failed: $e")
@@ -57,7 +57,7 @@ object AsBytes {
   }
 
   trait Instances {
-    val identityBytesEncoder: AsBytes[Infallible, Array[Byte]] = infallible(identity)
+    val identityBytesEncoder: InfallibleAsBytes[Array[Byte]] = infallible(identity)
 
     implicit def asBytesEq[T](implicit ev: AsBytes[_, T]): Eq[T] =
       (x: T, y: T) =>
@@ -95,7 +95,7 @@ trait FromBytes[DecodeFailure, Decoded] {
 
 object FromBytes {
 
-  def infallible[Decoded](f: Array[Byte] => Decoded): FromBytes[Infallible, Decoded] =
+  def infallible[Decoded](f: Array[Byte] => Decoded): InfallibleFromBytes[Decoded] =
     f(_).validNec[Infallible]
 
   class Ops(val instance: Array[Byte]) extends AnyVal {
@@ -110,7 +110,7 @@ object FromBytes {
      * @param decoder An infallible decoder.  Not all decoder are infallible.  Use #decodeTo for fallible decoder.
      * @return a Decoded value
      */
-    def infalliblyDecodeTo[Decoded](implicit decoder: FromBytes[Infallible, Decoded]): Decoded =
+    def infalliblyDecodeTo[Decoded](implicit decoder: InfallibleFromBytes[Decoded]): Decoded =
       decoder.decode(instance) match {
         case Validated.Valid(a)   => a
         case Validated.Invalid(e) => throw new IllegalStateException(s"Infallible decoder failed: $e")
