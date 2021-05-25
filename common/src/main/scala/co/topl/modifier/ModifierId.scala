@@ -1,16 +1,16 @@
 package co.topl.modifier
 
 import cats.implicits._
-import co.topl.crypto.hash.digest.implicits._
 import co.topl.crypto.hash.digest.Digest32
+import co.topl.crypto.hash.digest.implicits._
 import co.topl.crypto.hash.{Blake2b256, HashFailure}
 import co.topl.modifier.NodeViewModifier.ModifierTypeId
 import co.topl.modifier.block.Block
 import co.topl.modifier.transaction.Transaction
+import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 import co.topl.utils.codecs.AsBytes.implicits._
 import co.topl.utils.encode.Base58
 import co.topl.utils.serialization.{BifrostSerializer, BytesSerializable, Reader, Writer}
-import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 import com.google.common.primitives.Ints
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}

@@ -2,7 +2,7 @@ package co.topl.modifier.box.serialization
 
 import co.topl.modifier.box.StateBox
 import co.topl.utils.serialization.{BifrostSerializer, Reader, Writer}
-import io.circe.{parser, Json}
+import io.circe.{Json, parser}
 
 object StateBoxSerializer extends BifrostSerializer[StateBox] {
 

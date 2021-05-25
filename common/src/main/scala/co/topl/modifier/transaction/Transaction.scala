@@ -6,9 +6,9 @@ import co.topl.modifier.NodeViewModifier.ModifierTypeId
 import co.topl.modifier.block.BloomFilter.BloomTopic
 import co.topl.modifier.box.{Box, BoxId}
 import co.topl.modifier.{ModifierId, NodeViewModifier}
+import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 import co.topl.utils.NetworkType.NetworkPrefix
 import co.topl.utils.{Identifiable, Identifier, Int128}
-import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 import com.google.common.primitives.Longs
 import io.circe.{Decoder, Encoder, HCursor}
 

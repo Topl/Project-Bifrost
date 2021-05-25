@@ -1,6 +1,6 @@
 package co.topl.utils
 
-import co.topl.attestation.SignatureCurve25519
+import co.topl.attestation.{SignatureCurve25519, SignatureEd25519}
 import co.topl.modifier.ModifierId
 import co.topl.modifier.block.Block
 import co.topl.modifier.block.PersistentNodeViewModifier.PNVMVersion
@@ -19,7 +19,7 @@ trait GenesisBlockGenerators {
     val height: Long = 1L
     val difficulty = 1000000000000000000L
     val version: PNVMVersion = 1: Byte
-    val signingFunction: Array[Byte] => Try[SignatureCurve25519] =
+    val signingFunction: Array[Byte] => Try[SignatureEd25519] =
       (messageToSign: Array[Byte]) => keyRing.signWithAddress(matchingAddr)(messageToSign)
 
     Block

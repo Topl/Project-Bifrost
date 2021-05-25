@@ -1,21 +1,21 @@
 package co.topl.modifier.block
 
+import cats.implicits._
 import co.topl.attestation.EvidenceProducer.Syntax._
-import co.topl.attestation.{PublicKeyPropositionCurve25519, SignatureCurve25519}
+import co.topl.attestation.{PublicKeyPropositionEd25519, SignatureEd25519}
+import co.topl.crypto.accumulators.merkle.MerkleTree.MerkleTreeFailure
+import co.topl.crypto.hash.HashFailure
 import co.topl.modifier.NodeViewModifier.ModifierTypeId
+import co.topl.modifier.block.Block.ToBlockComponentsResult
 import co.topl.modifier.block.PersistentNodeViewModifier.PNVMVersion
 import co.topl.modifier.box.ArbitBox
 import co.topl.modifier.transaction.Transaction
 import co.topl.modifier.{ModifierId, NodeViewModifier}
+import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 import co.topl.utils.NetworkType.NetworkPrefix
 import co.topl.utils.TimeProvider
 import io.circe.syntax._
 import io.circe.{Decoder, Encoder, HCursor}
-import cats.implicits._
-import co.topl.crypto.accumulators.merkle.MerkleTree.MerkleTreeFailure
-import co.topl.crypto.hash.HashFailure
-import co.topl.modifier.block.Block.ToBlockComponentsResult
-import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 
 import scala.util.Try
 
@@ -38,8 +38,8 @@ case class Block(
   parentId:     ModifierId,
   timestamp:    TimeProvider.Time,
   generatorBox: ArbitBox,
-  publicKey:    PublicKeyPropositionCurve25519,
-  signature:    SignatureCurve25519,
+  publicKey:    PublicKeyPropositionEd25519,
+  signature:    SignatureEd25519,
   height:       Long,
   difficulty:   Long,
   transactions: Seq[Transaction.TX],
@@ -50,7 +50,7 @@ case class Block(
 
   lazy val id: ModifierId = ModifierId.create(this).getOrThrow()
 
-  lazy val messageToSign: Array[Byte] = this.copy(signature = SignatureCurve25519.empty).bytes
+  lazy val messageToSign: Array[Byte] = this.copy(signature = SignatureEd25519.empty).bytes
 
   def toBlockComponents: ToBlockComponentsResult = Block.toBlockComponents(this)
 
@@ -164,11 +164,11 @@ object Block {
     timestamp:    TimeProvider.Time,
     txs:          Seq[Transaction.TX],
     generatorBox: ArbitBox,
-    publicKey:    PublicKeyPropositionCurve25519,
+    publicKey:    PublicKeyPropositionEd25519,
     height:       Long,
     difficulty:   Long,
     version:      PNVMVersion
-  )(signFunction: Array[Byte] => Try[SignatureCurve25519]): Try[Block] = {
+  )(signFunction: Array[Byte] => Try[SignatureEd25519]): Try[Block] = {
 
     // the owner of the generator box must be the key used to sign the block
     require(generatorBox.evidence == publicKey.generateEvidence, "Attempted invalid block generation")
@@ -180,7 +180,7 @@ object Block {
         timestamp,
         generatorBox,
         publicKey,
-        SignatureCurve25519.empty,
+        SignatureEd25519.empty,
         height,
         difficulty,
         txs,

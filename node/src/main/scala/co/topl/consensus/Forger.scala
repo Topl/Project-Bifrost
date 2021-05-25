@@ -7,7 +7,7 @@ import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import cats.data.Validated
 import cats.implicits._
-import co.topl.attestation.{Address, PublicKeyPropositionCurve25519, SignatureCurve25519}
+import co.topl.attestation.{Address, PublicKeyPropositionCurve25519, PublicKeyPropositionEd25519, SignatureCurve25519, SignatureEd25519}
 import co.topl.consensus.Forger.{AttemptForgingFailure, ChainParams, PickTransactionsResult}
 import co.topl.consensus.KeyManager.ReceivableMessages._
 import co.topl.consensus.KeyManager.{AttemptForgingKeyView, ForgerStartupKeyView}
@@ -385,8 +385,8 @@ class Forger[
     rawRewards:   Seq[TX],
     txsToInclude: Seq[TX],
     forgeTime:    TimeProvider.Time,
-    sign:         Address => Array[Byte] => Try[SignatureCurve25519],
-    getPublicKey: Address => Try[PublicKeyPropositionCurve25519]
+    sign:         Address => Array[Byte] => Try[SignatureEd25519],
+    getPublicKey: Address => Try[PublicKeyPropositionEd25519]
   ): Either[Forger.ForgingError, Block] = {
 
     // generate the address the owns the generator box
@@ -405,7 +405,7 @@ class Forger[
     val signingFunction = sign(matchingAddr)
 
     // use the secret key that owns the successful box to sign the rewards transactions
-    val getAttMap: TX => Map[PublicKeyPropositionCurve25519, SignatureCurve25519] = (tx: TX) => {
+    val getAttMap: TX => Map[PublicKeyPropositionEd25519, SignatureEd25519] = (tx: TX) => {
       val sig = signingFunction(tx.messageToSign) match {
         case Success(sig) => sig
         case Failure(ex)  => throw ex

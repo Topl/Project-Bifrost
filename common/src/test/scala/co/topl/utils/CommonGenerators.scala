@@ -387,8 +387,8 @@ trait CommonGenerators extends Logging with NetworkPrefixTestHelper {
     parentIdBytes <- specificLengthBytesGen(ModifierId.size)
     timestamp     <- positiveLongGen
     generatorBox  <- arbitBoxGen
-    publicKey     <- propositionCurve25519Gen
-    signature     <- signatureCurve25519Gen
+    publicKey     <- propositionEd25519Gen
+    signature     <- signatureEd25519Gen
     txs           <- bifrostTransactionSeqGen
   } yield {
     val parentId = ModifierId(Base58.encode(parentIdBytes))

@@ -1,7 +1,7 @@
 package co.topl.consensus.genesis
 
 import co.topl.attestation.EvidenceProducer.Syntax._
-import co.topl.attestation.{PublicKeyPropositionCurve25519, SignatureCurve25519}
+import co.topl.attestation.{PublicKeyPropositionCurve25519, PublicKeyPropositionEd25519, SignatureCurve25519, SignatureEd25519}
 import co.topl.consensus.Forger.ChainParams
 import co.topl.modifier.ModifierId
 import co.topl.modifier.block.Block
@@ -53,7 +53,7 @@ case object ValhallaGenesis extends GenesisProvider {
     val txInput = (
       IndexedSeq(),
       memberKeys.zip(members.values.map(SimpleValue(_))).toIndexedSeq,
-      Map(genesisAcct.publicImage -> SignatureCurve25519.genesis),
+      Map(genesisAcct.publicImage -> SignatureEd25519.genesis),
       Int128(0),
       0L,
       None,
@@ -61,7 +61,7 @@ case object ValhallaGenesis extends GenesisProvider {
     )
 
     val txs = Seq(
-      ArbitTransfer[PublicKeyPropositionCurve25519](
+      ArbitTransfer[PublicKeyPropositionEd25519](
         txInput._1,
         txInput._2,
         txInput._3,
@@ -70,7 +70,7 @@ case object ValhallaGenesis extends GenesisProvider {
         txInput._6,
         txInput._7
       ),
-      PolyTransfer[PublicKeyPropositionCurve25519](
+      PolyTransfer[PublicKeyPropositionEd25519](
         txInput._1,
         txInput._2,
         txInput._3,
@@ -83,7 +83,7 @@ case object ValhallaGenesis extends GenesisProvider {
 
     val generatorBox = ArbitBox(genesisAcct.publicImage.generateEvidence, 0, SimpleValue(totalStake))
 
-    val signature = SignatureCurve25519.genesis
+    val signature = SignatureEd25519.genesis
 
     val block =
       Block(

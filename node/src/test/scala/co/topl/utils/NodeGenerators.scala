@@ -1,7 +1,7 @@
 package co.topl.utils
 
-import co.topl.attestation.keyManagement.{KeyRing, KeyfileCurve25519, PrivateKeyCurve25519}
-import co.topl.attestation.{Address, PublicKeyPropositionCurve25519}
+import co.topl.attestation.keyManagement.{KeyRing, KeyfileCurve25519, KeyfileEd25519, PrivateKeyCurve25519, PrivateKeyEd25519}
+import co.topl.attestation.{Address, PublicKeyPropositionCurve25519, PublicKeyPropositionEd25519}
 import co.topl.consensus.genesis.PrivateGenesis
 import co.topl.modifier.ModifierId
 import co.topl.modifier.block.Block
@@ -80,7 +80,7 @@ trait NodeGenerators extends CommonGenerators with KeyFileTestHelper {
     from        <- fromSeqGen
     to          <- toSeqGen
     attestation <- attestationGen
-    key         <- publicKeyPropositionCurve25519Gen
+    key         <- publicKeyPropositionEd25519Gen
     fee         <- positiveLongGen
     timestamp   <- positiveLongGen
     data        <- stringGen
@@ -115,10 +115,10 @@ trait NodeGenerators extends CommonGenerators with KeyFileTestHelper {
 //  }
 
   def validPolyTransfer(
-    keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519],
+    keyRing: KeyRing[PrivateKeyEd25519, KeyfileEd25519],
     state:   State,
     fee:     Long = 1L
-  ): Gen[PolyTransfer[PublicKeyPropositionCurve25519]] = {
+  ): Gen[PolyTransfer[PublicKeyPropositionEd25519]] = {
 
     val availablePolys = sumBoxes(collectBoxes(keyRing.addresses, state), "PolyBox")
     val (sender, poly) = availablePolys(Random.nextInt(availablePolys.length))
@@ -129,7 +129,7 @@ trait NodeGenerators extends CommonGenerators with KeyFileTestHelper {
       IndexedSeq((address, polyAmount))
     }
     val rawTx = PolyTransfer
-      .createRaw[PublicKeyPropositionCurve25519](
+      .createRaw[PublicKeyPropositionEd25519](
         state,
         recipients,
         IndexedSeq(sender),
@@ -143,10 +143,10 @@ trait NodeGenerators extends CommonGenerators with KeyFileTestHelper {
   }
 
   def validArbitTransfer(
-    keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519],
+    keyRing: KeyRing[PrivateKeyEd25519, KeyfileEd25519],
     state:   State,
     fee:     Long = 1L
-  ): Gen[ArbitTransfer[PublicKeyPropositionCurve25519]] = {
+  ): Gen[ArbitTransfer[PublicKeyPropositionEd25519]] = {
 
     val availableArbits = sumBoxes(collectBoxes(keyRing.addresses, state), "ArbitBox")
     val (sender, arbit) = availableArbits(Random.nextInt(availableArbits.length))
@@ -157,7 +157,7 @@ trait NodeGenerators extends CommonGenerators with KeyFileTestHelper {
       IndexedSeq((address, arbitAmount))
     }
     val rawTx = ArbitTransfer
-      .createRaw[PublicKeyPropositionCurve25519](
+      .createRaw[PublicKeyPropositionEd25519](
         state,
         recipients,
         IndexedSeq(sender),
@@ -172,18 +172,18 @@ trait NodeGenerators extends CommonGenerators with KeyFileTestHelper {
   }
 
   def validAssetTransfer(
-    keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519],
+    keyRing: KeyRing[PrivateKeyEd25519, KeyfileEd25519],
     state:   State,
     fee:     Long = 1L,
     minting: Boolean = false
-  ): Gen[AssetTransfer[PublicKeyPropositionCurve25519]] = {
+  ): Gen[AssetTransfer[PublicKeyPropositionEd25519]] = {
     val sender = keyRing.addresses.head
     val asset = AssetValue(1, AssetCode(1: Byte, sender, "test"), SecurityRoot.empty)
     val recipients = IndexedSeq((sender, asset))
 
     // todo: This should not be using the create raw function because we are testing too many things then!
     val rawTx = AssetTransfer
-      .createRaw[PublicKeyPropositionCurve25519](
+      .createRaw[PublicKeyPropositionEd25519](
         state,
         recipients,
         IndexedSeq(sender),

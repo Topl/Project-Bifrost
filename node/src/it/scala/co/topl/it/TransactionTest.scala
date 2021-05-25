@@ -2,7 +2,7 @@ package co.topl.it
 
 import cats.data.NonEmptyChain
 import co.topl.attestation._
-import co.topl.attestation.keyManagement.{KeyRing, KeyfileCurve25519, KeyfileCurve25519Companion, PrivateKeyCurve25519}
+import co.topl.attestation.keyManagement.{KeyRing, KeyfileCurve25519, KeyfileCurve25519Companion, KeyfileEd25519, PrivateKeyCurve25519, PrivateKeyEd25519}
 import co.topl.it.util._
 import co.topl.modifier.box.{AssetCode, AssetValue}
 import co.topl.modifier.transaction.Transaction
@@ -28,7 +28,7 @@ class TransactionTest
 
   private val nodeGroupName = "TransactionTest"
 
-  private val keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519] =
+  private val keyRing: KeyRing[PrivateKeyEd25519, KeyfileEd25519] =
     KeyRing.empty[PrivateKeyCurve25519, KeyfileCurve25519]()(
       networkPrefix,
       PrivateKeyCurve25519.secretGenerator,

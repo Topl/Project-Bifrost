@@ -1,13 +1,13 @@
 package co.topl.modifier.block
 
-import co.topl.attestation.{PublicKeyPropositionCurve25519, SignatureCurve25519}
+import co.topl.attestation.{PublicKeyPropositionEd25519, SignatureEd25519}
 import co.topl.crypto.hash.digest.Digest32
 import co.topl.modifier.NodeViewModifier.ModifierTypeId
 import co.topl.modifier.block.PersistentNodeViewModifier.PNVMVersion
 import co.topl.modifier.box.ArbitBox
 import co.topl.modifier.{ModifierId, NodeViewModifier}
-import co.topl.utils.codecs.CryptoCodec.implicits._
 import co.topl.utils.TimeProvider
+import co.topl.utils.codecs.CryptoCodec.implicits._
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, Encoder, HCursor}
 
@@ -16,8 +16,8 @@ case class BlockHeader(
   parentId:     ModifierId,
   timestamp:    TimeProvider.Time,
   generatorBox: ArbitBox,
-  publicKey:    PublicKeyPropositionCurve25519,
-  signature:    SignatureCurve25519,
+  publicKey:    PublicKeyPropositionEd25519,
+  signature:    SignatureEd25519,
   height:       Long,
   difficulty:   Long,
   txRoot:       Digest32,
@@ -54,8 +54,8 @@ object BlockHeader {
       parentId     <- c.downField("parentId").as[ModifierId]
       timestamp    <- c.downField("timestamp").as[TimeProvider.Time]
       generatorBox <- c.downField("generatorBox").as[ArbitBox]
-      publicKey    <- c.downField("publicKey").as[PublicKeyPropositionCurve25519]
-      signature    <- c.downField("signature").as[SignatureCurve25519]
+      publicKey    <- c.downField("publicKey").as[PublicKeyPropositionEd25519]
+      signature    <- c.downField("signature").as[SignatureEd25519]
       height       <- c.downField("height").as[Long]
       difficulty   <- c.downField("difficulty").as[Long]
       txRoot       <- c.downField("txRoot").as[Digest32]

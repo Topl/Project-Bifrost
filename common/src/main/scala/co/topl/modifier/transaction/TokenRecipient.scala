@@ -2,7 +2,7 @@ package co.topl.modifier.transaction
 
 import co.topl.attestation.{Address, Evidence}
 import co.topl.modifier.box.Box.Nonce
-import co.topl.modifier.box.{ArbitBox, AssetBox, AssetValue, Box, PolyBox, SimpleValue, TokenBox, TokenValueHolder}
+import co.topl.modifier.box._
 
 /*
 JAA - This is the start of an attempt to create a general multi-token transaction. The idea was to replace the 'to'

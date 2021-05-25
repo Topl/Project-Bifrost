@@ -1,14 +1,14 @@
 package co.topl.modifier.block.serialization
 
-import co.topl.attestation.serialization.{PublicKeyPropositionCurve25519Serializer, SignatureCurve25519Serializer}
-import co.topl.attestation.{PublicKeyPropositionCurve25519, SignatureCurve25519}
+import co.topl.attestation.serialization.{PublicKeyPropositionEd25519Serializer, SignatureEd25519Serializer}
+import co.topl.attestation.{PublicKeyPropositionEd25519, SignatureEd25519}
 import co.topl.crypto.hash.digest.Digest32
 import co.topl.modifier.ModifierId
 import co.topl.modifier.block.{BlockHeader, BloomFilter}
 import co.topl.modifier.box.ArbitBox
 import co.topl.modifier.box.serialization.ArbitBoxSerializer
-import co.topl.utils.serialization.{BifrostSerializer, Reader, Writer}
 import co.topl.utils.IdiomaticScalaTransition.implicits.toValidatedOps
+import co.topl.utils.serialization.{BifrostSerializer, Reader, Writer}
 
 object BlockHeaderSerializer extends BifrostSerializer[BlockHeader] {
 
@@ -29,10 +29,10 @@ object BlockHeaderSerializer extends BifrostSerializer[BlockHeader] {
     ArbitBoxSerializer.serialize(header.generatorBox, w)
 
     /* publicKey: PublicKeyCurve25519Proposition */
-    PublicKeyPropositionCurve25519Serializer.serialize(header.publicKey, w)
+    PublicKeyPropositionEd25519Serializer.serialize(header.publicKey, w)
 
     /* signature: Signature25519 */
-    SignatureCurve25519Serializer.serialize(header.signature, w)
+    SignatureEd25519Serializer.serialize(header.signature, w)
 
     /* height: Long */
     w.putLong(header.height)
@@ -58,9 +58,9 @@ object BlockHeaderSerializer extends BifrostSerializer[BlockHeader] {
 
     val generatorBox: ArbitBox = ArbitBoxSerializer.parse(r)
 
-    val publicKey: PublicKeyPropositionCurve25519 = PublicKeyPropositionCurve25519Serializer.parse(r)
+    val publicKey: PublicKeyPropositionEd25519 = PublicKeyPropositionEd25519Serializer.parse(r)
 
-    val signature: SignatureCurve25519 = SignatureCurve25519Serializer.parse(r)
+    val signature: SignatureEd25519 = SignatureEd25519Serializer.parse(r)
 
     val height: Long = r.getLong()
 

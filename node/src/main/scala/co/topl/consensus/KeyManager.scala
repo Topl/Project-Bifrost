@@ -6,11 +6,10 @@ import akka.util.Timeout
 import cats.data.EitherT
 import cats.implicits._
 import co.topl.attestation.AddressCodec.implicits.StringOps
-import co.topl.attestation.keyManagement.{KeyRing, KeyfileCurve25519, KeyfileCurve25519Companion, PrivateKeyCurve25519}
-import co.topl.attestation.{Address, AddressCodec, PublicKeyPropositionCurve25519, SignatureCurve25519}
+import co.topl.attestation.keyManagement.{KeyRing, KeyfileCurve25519, KeyfileCurve25519Companion, KeyfileEd25519, KeyfileEd25519Companion, PrivateKeyCurve25519, PrivateKeyEd25519}
+import co.topl.attestation.{Address, AddressCodec, PublicKeyPropositionCurve25519, PublicKeyPropositionEd25519, SignatureCurve25519, SignatureEd25519}
 import co.topl.catsakka.AskException
 import co.topl.consensus.KeyManager.{AttemptForgingKeyView, ForgerStartupKeyView}
-import co.topl.attestation.keyManagement.{KeyRing, KeyfileCurve25519, PrivateKeyCurve25519}
 import co.topl.settings.{AppContext, AppSettings}
 import co.topl.utils.Logging
 import co.topl.utils.NetworkType._
@@ -44,7 +43,7 @@ class KeyManager(
    * @param rewardAddress the address to give forging rewards to
    * @return a Receive partial function
    */
-  def receive(keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519], rewardAddress: Option[Address]): Receive = {
+  def receive(keyRing: KeyRing[PrivateKeyEd25519, KeyfileEd25519], rewardAddress: Option[Address]): Receive = {
     case CreateKey(password)                 => sender() ! keyRing.DiskOps.generateKeyFile(password)
     case UnlockKey(addr, password)           => sender() ! keyRing.DiskOps.unlockKeyFile(addr, password)
     case LockKey(addr)                       => sender() ! keyRing.removeFromKeyring(addr)
@@ -60,14 +59,14 @@ class KeyManager(
   //////////////////////////////// METHOD DEFINITIONS ////////////////////////////////
 
   /** Creates a new key ring. */
-  def createKeyRing(): KeyRing[PrivateKeyCurve25519, KeyfileCurve25519] = {
-    implicit val keyfileCurve25519Companion: KeyfileCurve25519Companion.type = KeyfileCurve25519Companion
+  def createKeyRing(): KeyRing[PrivateKeyEd25519, KeyfileEd25519] = {
+    implicit val keyfileCurve25519Companion: KeyfileEd25519Companion.type = KeyfileEd25519Companion
 
     val keyFileDir = settings.application.keyFileDir
       .ensuring(_.isDefined, "A keyfile directory must be specified")
       .get
 
-    KeyRing.empty[PrivateKeyCurve25519, KeyfileCurve25519](Some(keyFileDir))
+    KeyRing.empty[PrivateKeyEd25519, KeyfileEd25519](Some(keyFileDir))
   }
 
   /**
@@ -77,7 +76,7 @@ class KeyManager(
    * @return a try which results in a ForgerView of the current addresses and rewards address
    */
   private def generateInitialAddresses(
-    keyRing:       KeyRing[PrivateKeyCurve25519, KeyfileCurve25519],
+    keyRing:       KeyRing[PrivateKeyEd25519, KeyfileEd25519],
     rewardAddress: Option[Address]
   ): Try[ForgerStartupKeyView] =
     // If the keyring is not already populated and this is a private/local testnet, generate the keys
@@ -108,7 +107,7 @@ class KeyManager(
 
   /** Gets a read-only view of the key ring to use for forging. */
   private def getAttemptForgingKeyView(
-    keyRing:       KeyRing[PrivateKeyCurve25519, KeyfileCurve25519],
+    keyRing:       KeyRing[PrivateKeyEd25519, KeyfileEd25519],
     rewardAddress: Option[Address]
   ): AttemptForgingKeyView =
     AttemptForgingKeyView(
@@ -132,7 +131,7 @@ class KeyManager(
 
   /** Updates the rewards address from the API */
   private def updateRewardsAddress(
-    keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519],
+    keyRing: KeyRing[PrivateKeyEd25519, KeyfileEd25519],
     address: Address
   ): String = {
     val newRewardAddress = Some(address)
@@ -153,8 +152,8 @@ object KeyManager {
   case class AttemptForgingKeyView(
     addresses:    Set[Address],
     rewardAddr:   Option[Address],
-    sign:         Address => Array[Byte] => Try[SignatureCurve25519],
-    getPublicKey: Address => Try[PublicKeyPropositionCurve25519]
+    sign:         Address => Array[Byte] => Try[SignatureEd25519],
+    getPublicKey: Address => Try[PublicKeyPropositionEd25519]
   )
 
   object ReceivableMessages {

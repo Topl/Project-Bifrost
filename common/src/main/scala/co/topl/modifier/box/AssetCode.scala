@@ -2,8 +2,8 @@ package co.topl.modifier.box
 
 import co.topl.attestation.{Address, AddressSerializer}
 import co.topl.modifier.box.AssetCode.AssetCodeVersion
-import co.topl.utils.codecs.AsBytes.implicits._
 import co.topl.utils.Extensions.StringOps
+import co.topl.utils.codecs.AsBytes.implicits._
 import co.topl.utils.encode.Base58
 import co.topl.utils.serialization.{BifrostSerializer, BytesSerializable, Reader, Writer}
 import com.google.common.primitives.Ints

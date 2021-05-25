@@ -2,13 +2,13 @@ package co.topl.modifier.box
 
 import co.topl.crypto.hash.Blake2b256
 import co.topl.crypto.hash.digest.Digest32
+import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 import co.topl.utils.codecs.AsBytes.implicits._
 import co.topl.utils.encode.Base58
 import co.topl.utils.serialization.{BifrostSerializer, BytesSerializable, Reader, Writer}
 import com.google.common.primitives.Ints
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
-import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 
 import scala.util.{Failure, Success}
 

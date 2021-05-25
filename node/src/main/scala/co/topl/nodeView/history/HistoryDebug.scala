@@ -1,6 +1,6 @@
 package co.topl.nodeView.history
 
-import co.topl.attestation.PublicKeyPropositionCurve25519
+import co.topl.attestation.{PublicKeyPropositionCurve25519, PublicKeyPropositionEd25519}
 import co.topl.modifier.ModifierId
 import co.topl.modifier.block.Block
 import co.topl.network.message.SyncInfo
@@ -47,8 +47,8 @@ class HistoryDebug(hr: HistoryReader[Block, _ <: SyncInfo]) {
    *
    * @return a map from public keys of forgers to the number of blocks they have forged
    */
-  def forgerDistribution(): Map[PublicKeyPropositionCurve25519, Int] = {
-    val map = collection.mutable.Map[PublicKeyPropositionCurve25519, Int]().withDefaultValue(0)
+  def forgerDistribution(): Map[PublicKeyPropositionEd25519, Int] = {
+    val map = collection.mutable.Map[PublicKeyPropositionEd25519, Int]().withDefaultValue(0)
 
     /**
      * Finds the forger for this block, increments their block number entry in map, and continues down the chain

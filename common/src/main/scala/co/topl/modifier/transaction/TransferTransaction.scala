@@ -5,8 +5,8 @@ import co.topl.crypto.hash.Blake2b256
 import co.topl.modifier.BoxReader
 import co.topl.modifier.block.BloomFilter.BloomTopic
 import co.topl.modifier.box.{Box, _}
-import co.topl.utils.{Identifiable, Int128}
 import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
+import co.topl.utils.{Identifiable, Int128}
 import com.google.common.primitives.{Ints, Longs}
 import io.circe.Json
 import io.circe.syntax.EncoderOps

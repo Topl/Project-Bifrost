@@ -2,11 +2,11 @@ package co.topl.modifier.block
 
 import co.topl.crypto.hash.Blake2b256
 import co.topl.modifier.block.BloomFilter.BloomTopic
-import co.topl.utils.codecs.AsBytes.implicits._
 import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
+import co.topl.utils.codecs.AsBytes.implicits._
+import co.topl.utils.codecs.{AsBytes, FromBytes, Infallible}
 import co.topl.utils.encode.Base58
 import co.topl.utils.serialization.{BifrostSerializer, BytesSerializable, Reader, Writer}
-import co.topl.utils.codecs.{AsBytes, FromBytes, Infallible}
 import com.google.common.primitives.Longs
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}

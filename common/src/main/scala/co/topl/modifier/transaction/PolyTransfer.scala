@@ -4,7 +4,7 @@ import co.topl.attestation._
 import co.topl.modifier.BoxReader
 import co.topl.modifier.box._
 import co.topl.modifier.transaction.Transaction.TxType
-import co.topl.modifier.transaction.TransferTransaction.{encodeFrom, BoxParams, TransferCreationState}
+import co.topl.modifier.transaction.TransferTransaction.{BoxParams, TransferCreationState, encodeFrom}
 import co.topl.utils.NetworkType.NetworkPrefix
 import co.topl.utils.codecs.Int128Codec
 import co.topl.utils.{Identifiable, Identifier, Int128}
@@ -139,6 +139,11 @@ object PolyTransfer {
         case ThresholdPropositionCurve25519.`typeString` =>
           c.downField("signatures").as[Map[ThresholdPropositionCurve25519, ThresholdSignatureCurve25519]].map {
             new PolyTransfer[ThresholdPropositionCurve25519](from, to, _, fee, timestamp, data, minting)
+          }
+
+        case PublicKeyPropositionEd25519.`typeString` =>
+          c.downField("signatures").as[Map[PublicKeyPropositionEd25519, SignatureEd25519]].map {
+            new PolyTransfer[PublicKeyPropositionEd25519](from, to, _, fee, timestamp, data, minting)
           }
       }) match {
         case Right(tx) => tx

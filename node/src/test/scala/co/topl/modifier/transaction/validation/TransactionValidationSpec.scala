@@ -2,7 +2,7 @@ package co.topl.modifier.transaction.validation
 
 import cats.data.NonEmptyChain
 import cats.scalatest.{ValidatedMatchers, ValidatedNecMatchers}
-import co.topl.attestation.{Address, PublicKeyPropositionCurve25519}
+import co.topl.attestation.{Address, PublicKeyPropositionEd25519}
 import co.topl.modifier.box._
 import co.topl.modifier.transaction.validation.implicits._
 import co.topl.modifier.transaction._
@@ -26,7 +26,7 @@ class TransactionValidationSpec
     with ValidatedMatchers
     with ValidatedNecMatchers {
 
-  type TransferTx = TransferTransaction[TokenValueHolder, PublicKeyPropositionCurve25519]
+  type TransferTx = TransferTransaction[TokenValueHolder, PublicKeyPropositionEd25519]
 
   property("Randomly generated AssetTransfer Tx should be valid") {
     forAll(validAssetTransfer(keyRing, genesisState, minting = true)) { tx =>
@@ -166,12 +166,12 @@ class TransactionValidationSpec
     }
   }
 
-  private def signTx(tx: PolyTransfer[PublicKeyPropositionCurve25519]): PolyTransfer[PublicKeyPropositionCurve25519] =
+  private def signTx(tx: PolyTransfer[PublicKeyPropositionEd25519]): PolyTransfer[PublicKeyPropositionEd25519] =
     tx.copy(attestation = Transaction.updateAttestation(tx)(keyRing.generateAttestation(tx.from.map(_._1).toSet)))
 
-  private def signTx(tx: ArbitTransfer[PublicKeyPropositionCurve25519]): ArbitTransfer[PublicKeyPropositionCurve25519] =
+  private def signTx(tx: ArbitTransfer[PublicKeyPropositionEd25519]): ArbitTransfer[PublicKeyPropositionEd25519] =
     tx.copy(attestation = Transaction.updateAttestation(tx)(keyRing.generateAttestation(tx.from.map(_._1).toSet)))
 
-  private def signTx(tx: AssetTransfer[PublicKeyPropositionCurve25519]): AssetTransfer[PublicKeyPropositionCurve25519] =
+  private def signTx(tx: AssetTransfer[PublicKeyPropositionEd25519]): AssetTransfer[PublicKeyPropositionEd25519] =
     tx.copy(attestation = Transaction.updateAttestation(tx)(keyRing.generateAttestation(tx.from.map(_._1).toSet)))
 }

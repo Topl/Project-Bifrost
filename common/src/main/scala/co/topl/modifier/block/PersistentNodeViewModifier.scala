@@ -3,9 +3,9 @@ package co.topl.modifier.block
 import co.topl.crypto.accumulators.LeafData
 import co.topl.crypto.accumulators.merkle.MerkleTree
 import co.topl.crypto.accumulators.merkle.MerkleTree.MerkleTreeResult
-import co.topl.crypto.hash.implicits._
 import co.topl.crypto.hash.Blake2b
 import co.topl.crypto.hash.digest.Digest32
+import co.topl.crypto.hash.implicits._
 import co.topl.modifier.block.BloomFilter.BloomTopic
 import co.topl.modifier.block.PersistentNodeViewModifier.PNVMVersion
 import co.topl.modifier.transaction.Transaction
