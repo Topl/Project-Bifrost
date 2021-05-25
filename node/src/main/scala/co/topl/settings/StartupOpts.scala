@@ -2,6 +2,7 @@ package co.topl.settings
 
 import co.topl.utils.NetworkType
 import mainargs.{arg, main, Flag, ParserForClass, TokensReader}
+import monocle.syntax.all._
 
 /**
  * Parameters that are given at application startup. Only parameters that are
@@ -52,29 +53,25 @@ final case class RuntimeOpts(
    * @param appSettings application settings read from the configuration file
    * @return an updated appSettings instance
    */
-  def overrideWithCmdArgs(appSettings: AppSettings): AppSettings = {
-    val rpcApiSettings = appSettings.rpcApi.copy(
-      disableAuth = appSettings.rpcApi.disableAuth || disableAuth.value,
-      apiKeyHash = apiKeyHash.fold[String](appSettings.rpcApi.apiKeyHash)(a => a)
-    )
-    val privateTestnetSettings =
-      appSettings.forging.privateTestnet
-        .map(
-          _.copy(
-            genesisSeed = seed.orElse(appSettings.forging.privateTestnet.flatMap(_.genesisSeed))
-          )
-        )
-    val forgingSettings =
-      appSettings.forging.copy(
-        forgeOnStartup = appSettings.forging.forgeOnStartup || forgeOnStartup.value,
-        privateTestnet = privateTestnetSettings
+  def overrideWithCmdArgs(appSettings: AppSettings): AppSettings =
+    appSettings
+      // seed
+      .focus(_.forging.privateTestnet)
+      .modify(_.map(_.focus(_.genesisSeed).replace(seed)))
+      // forge
+      .focus(_.forging.forgeOnStartup)
+      .replace(appSettings.forging.forgeOnStartup || forgeOnStartup.value)
+      // disableAuth
+      .focus(_.rpcApi.disableAuth)
+      .replace(appSettings.rpcApi.disableAuth || disableAuth.value)
+      // apiKeyHash
+      .focus(_.rpcApi.apiKeyHash)
+      .modify(configKey =>
+        apiKeyHash match {
+          case Some(cliKey) => cliKey
+          case None         => configKey
+        }
       )
-
-    appSettings.copy(
-      rpcApi = rpcApiSettings,
-      forging = forgingSettings
-    )
-  }
 }
 
 object StartupOptsImplicits {

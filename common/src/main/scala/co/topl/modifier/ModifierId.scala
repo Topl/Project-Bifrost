@@ -1,9 +1,9 @@
 package co.topl.modifier
 
 import cats.implicits._
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.digest.Digest32
 import co.topl.crypto.hash.digest.implicits._
-import co.topl.crypto.hash.{Blake2b256, HashFailure}
 import co.topl.modifier.NodeViewModifier.ModifierTypeId
 import co.topl.modifier.block.Block
 import co.topl.modifier.transaction.Transaction
@@ -46,11 +46,8 @@ object ModifierId extends BifrostSerializer[ModifierId] {
   implicit val ord: Ordering[ModifierId] = Ordering.by(_.toString)
 
   sealed trait CreateModifierIdFailure
-  case class MessageHashFailure(failure: HashFailure) extends CreateModifierIdFailure
   case object InvalidModifierFailure extends CreateModifierIdFailure
   case class Base58DecodeFailure(failure: Throwable) extends CreateModifierIdFailure
-
-  type CreateModifierIdResult = Either[CreateModifierIdFailure, ModifierId]
 
   implicit val jsonEncoder: Encoder[ModifierId] = (id: ModifierId) => id.toString.asJson
   implicit val jsonKeyEncoder: KeyEncoder[ModifierId] = (id: ModifierId) => id.toString
@@ -64,17 +61,14 @@ object ModifierId extends BifrostSerializer[ModifierId] {
    * @param nodeViewModifier the modifier to create an ID from
    * @return a create result with a CreateModifierIdFailure if a failure occurred
    */
-  def create(nodeViewModifier: NodeViewModifier): CreateModifierIdResult = nodeViewModifier match {
+  def create(nodeViewModifier: NodeViewModifier): Either[CreateModifierIdFailure, ModifierId] = nodeViewModifier match {
     case mod: Block =>
-      Blake2b256
-        .hash(mod.messageToSign)
-        .map(hash => new ModifierId(Block.modifierTypeId.value +: hash.value))
-        .leftMap(MessageHashFailure)
+      new ModifierId(
+        Block.modifierTypeId.value +: blake2b256.hash(mod.messageToSign).bytes
+      ).asRight[CreateModifierIdFailure]
     case mod: Transaction.TX =>
-      Blake2b256
-        .hash(mod.messageToSign)
-        .map(hash => new ModifierId(Transaction.modifierTypeId.value +: hash.value))
-        .leftMap(MessageHashFailure)
+      new ModifierId(Transaction.modifierTypeId.value +: blake2b256.hash(mod.messageToSign).bytes)
+        .asRight[CreateModifierIdFailure]
     case _ => Left(InvalidModifierFailure)
   }
 
@@ -83,15 +77,15 @@ object ModifierId extends BifrostSerializer[ModifierId] {
    * @param str the string to turn into a modifier ID
    * @return a create result with a CreateModifierIdFailure is a failure occurred
    */
-  def create(str: String): CreateModifierIdResult =
+  def create(str: String): Either[CreateModifierIdFailure, ModifierId] =
     Base58.decode(str).toEither.map(new ModifierId(_)).leftMap(Base58DecodeFailure)
 
   @deprecated
   def apply(nodeViewModifier: NodeViewModifier): ModifierId = nodeViewModifier match {
     case mod: Block =>
-      new ModifierId(Block.modifierTypeId.value +: Blake2b256.hash(mod.messageToSign).getOrThrow().bytes)
+      new ModifierId(Block.modifierTypeId.value +: blake2b256.hash(mod.messageToSign).bytes)
     case mod: Transaction.TX =>
-      new ModifierId(Transaction.modifierTypeId.value +: Blake2b256.hash(mod.messageToSign).getOrThrow().bytes)
+      new ModifierId(Transaction.modifierTypeId.value +: blake2b256.hash(mod.messageToSign).bytes)
     case _ => throw new Error("Only blocks and transactions generate a modifierId")
   }
 

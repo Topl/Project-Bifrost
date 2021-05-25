@@ -2,7 +2,7 @@ package co.topl.attestation.keyManagement
 
 import co.topl.attestation.Address
 import co.topl.crypto.{PrivateKey, PublicKey}
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.signatures.eddsa.Ed25519
 import co.topl.utils.codecs.AsBytes.implicits.identityBytesEncoder
 import co.topl.utils.Extensions.StringOps
@@ -160,7 +160,7 @@ object KeyfileEd25519Companion extends KeyfileCompanion[PrivateKeyEd25519, Keyfi
    * @return
    */
   private def getMAC(derivedKey: Array[Byte], cipherText: Array[Byte]): Array[Byte] =
-    Blake2b256.hash(derivedKey.slice(16, 32) ++ cipherText).getOrThrow().value
+    blake2b256.hash(derivedKey.slice(16, 32) ++ cipherText).value
 
   /**
    * @param derivedKey

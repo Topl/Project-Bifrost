@@ -7,7 +7,7 @@ jobs:
   unit_tests:
     docker:
       # specify the version you desire here
-      - image: toplprotocol/graalvm-test-21.0.0
+      - image: toplprotocol/graalvm-jdk11-21.1.0-test
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images

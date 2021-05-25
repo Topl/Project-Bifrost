@@ -40,6 +40,9 @@ package object digest {
      * @return the bytes of the digest
      */
     def bytes(d: T): Array[Byte]
+
+    def empty: T = from(Array.fill(size)(0: Byte))
+      .getOrElse(throw new Error(s"Failed to validate empty digest of size $size!"))
   }
 
   @newtype
@@ -102,5 +105,7 @@ package object digest {
     implicit def eqDigest[D: Digest]: Eq[D] = _.bytes sameElements _.bytes
   }
 
-  object implicits extends Instances with Digest.ToDigestOps with Extensions
+  trait DigestImplicits extends Instances with Digest.ToDigestOps with Extensions
+
+  object implicits extends DigestImplicits
 }

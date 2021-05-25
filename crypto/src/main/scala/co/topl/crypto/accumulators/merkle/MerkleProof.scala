@@ -34,7 +34,7 @@ case class MerkleProof[H, D: Digest](leafData: LeafData, levels: Seq[(Option[D],
     val leafHash = hashFunc.hash(MerkleTree.LeafPrefix, leafData.value)
 
     val result = levels.foldLeft(leafHash) {
-      case (Right(prevHash), (hash, side)) =>
+      case (prevHash, (hash, side)) =>
         val nodeBytes =
           hash.map { h =>
             if (side == MerkleProof.LeftSide) prevHash.bytes ++ h.bytes
@@ -46,7 +46,7 @@ case class MerkleProof[H, D: Digest](leafData: LeafData, levels: Seq[(Option[D],
       case (invalidHash, _) => invalidHash
     }
 
-    result.map(r => r === expectedRootHash).getOrElse(false)
+    result === expectedRootHash
   }
 }
 

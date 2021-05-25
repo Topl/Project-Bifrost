@@ -70,7 +70,7 @@ class AssetRPCSpec extends AnyWordSpec with Matchers with RPCMockState {
           rawTx.deepMerge(signatures)
         }
 
-        tx = sigTx.right.get.toString
+        tx = sigTx.getOrElse("").toString
 
         (res \\ "error").isEmpty shouldBe true
         (res \\ "result").head.asObject.isDefined shouldBe true

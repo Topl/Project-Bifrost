@@ -1,7 +1,7 @@
 package co.topl.modifier.transaction
 
 import co.topl.attestation.{Evidence, _}
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.modifier.BoxReader
 import co.topl.modifier.block.BloomFilter.BloomTopic
 import co.topl.modifier.box.{Box, _}
@@ -12,6 +12,7 @@ import io.circe.Json
 import io.circe.syntax.EncoderOps
 
 import scala.util.Try
+import scala.Iterable
 
 abstract class TransferTransaction[
   +T <: TokenValueHolder,
@@ -38,9 +39,9 @@ abstract class TransferTransaction[
   val feeChangeOutput: PolyBox =
     PolyBox(feeOutputParams.evidence, feeOutputParams.nonce, feeOutputParams.value)
 
-  val coinOutput: Traversable[TokenBox[T]]
+  val coinOutput: Iterable[TokenBox[T]]
 
-  override val newBoxes: Traversable[TokenBox[TokenValueHolder]]
+  override val newBoxes: Iterable[TokenBox[TokenValueHolder]]
 
   override def messageToSign: Array[Byte] =
     super.messageToSign ++
@@ -67,7 +68,7 @@ object TransferTransaction {
   def calculateBoxNonce[T <: TokenValueHolder](
     tx: TransferTransaction[T, _ <: Proposition],
     to: IndexedSeq[(Address, T)]
-  ): (BoxParams[SimpleValue], Traversable[BoxParams[T]]) = {
+  ): (BoxParams[SimpleValue], Iterable[BoxParams[T]]) = {
 
     // known input data (similar to messageToSign but without newBoxes since they aren't known yet)
     val txIdPrefix = Transaction.identifier(tx).typePrefix
@@ -79,7 +80,7 @@ object TransferTransaction {
       Array(txIdPrefix) ++ boxIdsToOpenAccumulator ++ timestampBytes ++ feeBytes
 
     val calcNonce: Int => Box.Nonce = (index: Int) => {
-      val digest = Blake2b256.hash(inputBytes ++ Ints.toByteArray(index)).getOrThrow()
+      val digest = blake2b256.hash(inputBytes ++ Ints.toByteArray(index))
       Transaction.nonceFromDigest(digest)
     }
 

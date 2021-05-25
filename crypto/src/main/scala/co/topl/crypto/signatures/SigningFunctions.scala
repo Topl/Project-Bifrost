@@ -11,9 +11,9 @@ trait SigningFunctions {
   val SignatureLength: Int
   val KeyLength: Int
 
-  def createKeyPair(seed: Array[Byte]): CreateKeyPairResult
+  def createKeyPair(seed: Array[Byte]): (PrivateKey, PublicKey)
 
-  def createKeyPair: CreateKeyPairResult = {
+  def createKeyPair: (PrivateKey, PublicKey) = {
     val seed = new Array[Byte](KeyLength)
     new SecureRandom().nextBytes(seed) // modifies seed
     createKeyPair(seed)

@@ -1,8 +1,7 @@
 package co.topl.nodeView.history
 
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.digest.Digest32
-import co.topl.crypto.hash.implicits.toHashResultOps
 import co.topl.modifier.ModifierId
 import co.topl.modifier.block.serialization.BlockSerializer
 import co.topl.modifier.block.{Block, BloomFilter}
@@ -123,24 +122,24 @@ class Storage(private[history] val storage: LSMStore, private val cacheExpire: I
    * without needing to parse the entire block from storage
    */
   private def blockScoreKey(blockId: ModifierId): Digest32 =
-    Blake2b256.hash("score".getBytes ++ blockId.getIdBytes).getOrThrow()
+    blake2b256.hash("score".getBytes ++ blockId.getIdBytes)
 
   private def blockHeightKey(blockId: ModifierId): Digest32 =
-    Blake2b256.hash("height".getBytes ++ blockId.getIdBytes).getOrThrow()
+    blake2b256.hash("height".getBytes ++ blockId.getIdBytes)
 
   private def blockDiffKey(blockId: ModifierId): Digest32 =
-    Blake2b256.hash("difficulty".getBytes ++ blockId.getIdBytes).getOrThrow()
+    blake2b256.hash("difficulty".getBytes ++ blockId.getIdBytes)
 
   private def blockTimestampKey(blockId: ModifierId): Digest32 =
-    Blake2b256.hash("timestamp".getBytes ++ blockId.getIdBytes).getOrThrow()
+    blake2b256.hash("timestamp".getBytes ++ blockId.getIdBytes)
 
   private def blockBloomKey(blockId: ModifierId): Digest32 =
-    Blake2b256.hash("bloom".getBytes ++ blockId.getIdBytes).getOrThrow()
+    blake2b256.hash("bloom".getBytes ++ blockId.getIdBytes)
 
   private def blockParentKey(blockId: ModifierId): Digest32 =
-    Blake2b256.hash("parentId".getBytes ++ blockId.getIdBytes).getOrThrow()
+    blake2b256.hash("parentId".getBytes ++ blockId.getIdBytes)
 
-  private def idHeightKey(height: Long): Digest32 = Blake2b256.hash(Longs.toByteArray(height)).getOrThrow()
+  private def idHeightKey(height: Long): Digest32 = blake2b256.hash(Longs.toByteArray(height))
 
   /* << EXAMPLE >>
       For version "b00123123":

@@ -2,7 +2,7 @@ package crypto
 
 import attestation.{Address, PrivateKeyCurve25519}
 import co.topl.crypto.{PrivateKey, PublicKey}
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.implicits._
 import co.topl.crypto.signatures.Curve25519
 import co.topl.utils.codecs.AsBytes.implicits._
@@ -114,9 +114,13 @@ object KeyfileCurve25519 extends KeyfileCompanion[PrivateKeyCurve25519, KeyfileC
     val src = scala.io.Source.fromFile(filename)
 
     // attempt to retrieve the required keyfile type from the data that was just read
-    val keyfile = parse(src.mkString).right.get.as[KeyfileCurve25519] match {
-      case Right(kf: KeyfileCurve25519) => kf
-      case Left(e)                      => throw new Exception(s"Could not parse KeyFile: $e")
+    val keyfile = parse(src.mkString) match {
+      case Right(json) =>
+        json.as[KeyfileCurve25519] match {
+          case Right(kf: KeyfileCurve25519) => kf
+          case Left(e)                      => throw new Exception(s"Keyfile cannot be instantiated from JSON: $e")
+        }
+      case Left(e) => throw new Exception(s"Could not parse KeyFile: $e")
     }
 
     // close the stream and return the keyfile
@@ -142,7 +146,7 @@ object KeyfileCurve25519 extends KeyfileCompanion[PrivateKeyCurve25519, KeyfileC
    * @return
    */
   private def getMAC(derivedKey: Array[Byte], cipherText: Array[Byte]): Array[Byte] =
-    Blake2b256.hash(derivedKey.slice(16, 32) ++ cipherText).getOrThrow().infalliblyEncodeAsBytes
+    blake2b256.hash(derivedKey.slice(16, 32) ++ cipherText).infalliblyEncodeAsBytes
 
   /**
    * Generates cipherText and MAC from AES (block cipher)

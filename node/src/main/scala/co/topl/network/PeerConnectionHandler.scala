@@ -59,7 +59,7 @@ class PeerConnectionHandler(
 
   private var outMessagesCounter: Long = 0
 
-  override def preStart: Unit = {
+  override def preStart(): Unit = {
 
     /** per Akka docs this "signs the death pact: this actor terminates when connection breaks" */
     context watch connection

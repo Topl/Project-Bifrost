@@ -29,8 +29,6 @@ package object crypto {
       with digest.Digest.ToDigestOps
       with digest.Extensions
       with hash.Instances
-      with hash.ToHashResultOps
-      with signatures.ToCreateKeyPairResultOps
       with PrivateKey.Instances
 
 }

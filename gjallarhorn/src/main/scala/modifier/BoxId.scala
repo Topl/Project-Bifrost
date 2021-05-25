@@ -1,9 +1,8 @@
 package modifier
 
 import attestation.Evidence
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.digest.Digest32
-import co.topl.crypto.hash.implicits.toHashResultOps
 import co.topl.utils.codecs.AsBytes.implicits._
 import co.topl.utils.encode.Base58
 import com.google.common.primitives.{Ints, Longs}
@@ -44,7 +43,7 @@ object BoxId {
     }
 
   def idFromEviNonce(evidence: Evidence, nonce: Long): BoxId =
-    BoxId(Blake2b256.hash(evidence.bytes ++ Longs.toByteArray(nonce)).getOrThrow().value)
+    BoxId(blake2b256.hash(evidence.bytes ++ Longs.toByteArray(nonce)).value)
 
   implicit val jsonEncoder: Encoder[BoxId] = (id: BoxId) => id.toString.asJson
   implicit val jsonKeyEncoder: KeyEncoder[BoxId] = (id: BoxId) => id.toString

@@ -4,7 +4,7 @@ import cats.implicits._
 import co.topl.crypto.accumulators.{LeafData, Side}
 import co.topl.crypto.hash.digest.Digest
 import co.topl.crypto.hash.digest.implicits._
-import co.topl.crypto.hash.{Hash, HashFailure, HashResult, InvalidDigest}
+import co.topl.crypto.hash.Hash
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -16,21 +16,16 @@ case class MerkleTree[H, D: Digest](
   elementsHashIndex: Map[mutable.WrappedArray.ofByte, Int]
 )(implicit h:        Hash[H, D]) {
 
-  private lazy val emptyRootHash: HashResult[D] =
-    Digest[D]
-      .from(Array.fill(Digest[D].size)(0: Byte))
-      .leftMap(InvalidDigest)
-      .toEither
+  private lazy val emptyRootHash: D = Digest[D].empty
 
-  lazy val rootHash: HashResult[D] =
+  lazy val rootHash: D =
     topNode
       .map(_.hash)
       .getOrElse(emptyRootHash)
 
   lazy val length: Int = elementsHashIndex.size
 
-  def proofByElement(element: Leaf[H, D]): Option[MerkleProof[H, D]] =
-    element.hash.toOption.flatMap(proofByElementHash)
+  def proofByElement(element: Leaf[H, D]): Option[MerkleProof[H, D]] = proofByElementHash(element.hash)
 
   def proofByElementHash(hash: D): Option[MerkleProof[H, D]] =
     elementsHashIndex.get(new mutable.WrappedArray.ofByte(hash.bytes)).flatMap(i => proofByIndex(i))
@@ -47,19 +42,11 @@ case class MerkleTree[H, D: Digest](
       node match {
         case Some(n: InternalNode[H, D]) if i < curLength / 2 =>
           n.right match {
-            case Some(right) =>
-              right.hash match {
-                case Right(hash) => loop(Some(n.left), i, curLength / 2, (Some(hash), MerkleProof.LeftSide) +: acc)
-                case Left(_)     => None
-              }
-            case None => loop(Some(n.left), i, curLength / 2, (None, MerkleProof.LeftSide) +: acc)
+            case Some(right) => loop(Some(n.left), i, curLength / 2, (Some(right.hash), MerkleProof.LeftSide) +: acc)
+            case None        => loop(Some(n.left), i, curLength / 2, (None, MerkleProof.LeftSide) +: acc)
           }
         case Some(n: InternalNode[H, D]) if i < curLength =>
-          n.left.hash match {
-            case Right(hash) =>
-              loop(n.right, i - curLength / 2, curLength / 2, (Some(hash), MerkleProof.RightSide) +: acc)
-            case Left(_) => None
-          }
+          loop(n.right, i - curLength / 2, curLength / 2, (Some(n.left.hash), MerkleProof.RightSide) +: acc)
         case Some(n: Leaf[H, D]) =>
           Some((n, acc))
         case _ =>
@@ -84,35 +71,24 @@ object MerkleTree {
   val LeafPrefix: Byte = 0: Byte
   val InternalNodePrefix: Byte = 1: Byte
 
-  sealed trait MerkleTreeFailure
-  case class LeafHashFailure(failure: HashFailure) extends MerkleTreeFailure
-
-  type MerkleTreeResult[H, D] = Either[MerkleTreeFailure, MerkleTree[H, D]]
-
   /**
    * Construct Merkle tree from leafs
    *
    * @param payload       - sequence of leafs data
    * @return MerkleTree constructed from current leafs with defined empty node and hash function
    */
-  def construct[H, D: Digest](payload: Seq[LeafData])(implicit h: Hash[H, D]): MerkleTreeResult[H, D] = {
+  def apply[H, D: Digest](payload: Seq[LeafData])(implicit h: Hash[H, D]): MerkleTree[H, D] = {
     val leafs = payload.map(d => Leaf[H, D](d))
 
     val elementsToIndex =
       leafs.zipWithIndex
-        .foldLeft(Map[mutable.WrappedArray.ofByte, Int]().asRight[MerkleTreeFailure]) {
-          case (elements, (leaf, leafIndex)) =>
-            elements.flatMap(e =>
-              leaf.hash
-                .leftMap(LeafHashFailure)
-                .map(h => new mutable.WrappedArray.ofByte(h.bytes))
-                .map(w => e + (w -> leafIndex))
-            )
+        .foldLeft(Map[mutable.WrappedArray.ofByte, Int]()) { case (elements, (leaf, leafIndex)) =>
+          elements + (new mutable.WrappedArray.ofByte(leaf.hash.bytes) -> leafIndex)
         }
 
     val topNode = calcTopNode[H, D](leafs)
 
-    elementsToIndex.map(MerkleTree[H, D](topNode, _))
+    MerkleTree[H, D](topNode, elementsToIndex)
   }
 
   @tailrec

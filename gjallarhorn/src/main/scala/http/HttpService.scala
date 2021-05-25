@@ -4,7 +4,7 @@ import akka.http.scaladsl.model.headers.{HttpOrigin, Origin}
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
 import akka.http.scaladsl.server.Route
 import akka.util.Timeout
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.digest.Digest32
 import co.topl.utils.encode.Base58
 import io.circe.Json
@@ -116,7 +116,7 @@ final case class HttpService(apiServices: Seq[ApiRoute], settings: RPCApiSetting
    * @return true if api key is valid, false otherwise
    */
   private def isValid(keyOpt: Option[String]): Boolean = {
-    lazy val keyHash: Option[Digest32] = keyOpt.flatMap(k => Blake2b256.hash(k.getBytes).toOption)
+    lazy val keyHash: Option[Digest32] = keyOpt.map(k => blake2b256.hash(k.getBytes))
     (apiKeyHash, keyHash) match {
       case (None, _)                      => true
       case (Some(expected), Some(passed)) => expected sameElements passed.value

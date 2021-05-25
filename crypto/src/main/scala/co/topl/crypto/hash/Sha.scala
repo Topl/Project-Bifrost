@@ -1,13 +1,12 @@
 package co.topl.crypto.hash
 
-import co.topl.crypto.hash.digest.{Digest, Digest32, Digest64}
-import co.topl.crypto.hash.implicits._
+import co.topl.crypto.hash.digest.Digest
 
 import java.security.MessageDigest
 
 abstract class ShaHash[D: Digest](val algorithmName: String) extends Hash[Sha, D] {
 
-  override def hash(prefix: Option[Byte], messages: Message*): HashResult[D] =
+  override def hash(prefix: Option[Byte], messages: Message*): D =
     Digest[D]
       .from(
         MessageDigest
@@ -20,9 +19,5 @@ abstract class ShaHash[D: Digest](val algorithmName: String) extends Hash[Sha, D
             )(_ ++ _)
           )
       )
-      .leftMap(InvalidDigest)
-      .toEither
+      .valueOr(err => throw new Error(s"Sha hash with digest size ${Digest[D].size} was invalid! $err"))
 }
-
-case object Sha256 extends ShaHash[Digest32]("Sha-256")
-case object Sha512 extends ShaHash[Digest64]("Sha-512")

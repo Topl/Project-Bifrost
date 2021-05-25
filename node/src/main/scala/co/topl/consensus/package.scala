@@ -1,7 +1,6 @@
 package co.topl
 
-import co.topl.crypto.hash.Blake2b256
-import co.topl.crypto.hash.implicits.toHashResultOps
+import co.topl.crypto.hash.blake2b256
 import co.topl.modifier.block.Block
 import co.topl.modifier.box.ArbitBox
 import co.topl.settings.ProtocolSettings
@@ -50,7 +49,7 @@ package object consensus {
    * @return the test value to be compared to the adjusted difficulty
    */
   def calcHit(lastBlock: Block)(box: ArbitBox): Long = {
-    val h = Blake2b256.hash(lastBlock.bytes ++ box.bytes).getOrThrow()
+    val h = blake2b256.hash(lastBlock.bytes ++ box.bytes)
 
     Longs.fromByteArray((0: Byte) +: h.value.take(7))
   }
@@ -83,9 +82,9 @@ package object consensus {
 
     // magic numbers here (1.1, 0.9, and 0.64) are straight from NXT
     if (averageDelay > targetTimeMilli) {
-      (prevDifficulty * min(averageDelay, targetTimeMilli * 1.1) / targetTimeMilli).toLong
+      (prevDifficulty * min(averageDelay.toDouble, targetTimeMilli * 1.1) / targetTimeMilli).toLong
     } else {
-      (prevDifficulty * (1 - 0.64 * (1 - (max(averageDelay, targetTimeMilli * 0.9) / targetTimeMilli)))).toLong
+      (prevDifficulty * (1 - 0.64 * (1 - (max(averageDelay.toDouble, targetTimeMilli * 0.9) / targetTimeMilli)))).toLong
     }
   }
 }

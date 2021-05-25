@@ -2,8 +2,7 @@ package modifier
 
 import attestation.AddressEncoder.NetworkPrefix
 import attestation.{Evidence, _}
-import co.topl.crypto.hash.Blake2b256
-import co.topl.crypto.hash.implicits.toHashResultOps
+import co.topl.crypto.hash.blake2b256
 import com.google.common.primitives.{Ints, Longs}
 import crypto.AssetCode
 import io.circe.syntax.EncoderOps
@@ -14,6 +13,7 @@ import utils.{Identifiable, Identifier}
 
 import scala.collection.mutable.{Map => MMap}
 import scala.util.Try
+import scala.Iterable
 
 /**
  * A transfer transaction which can be a: poly transaction, arbit transaction or asset transaction
@@ -43,12 +43,12 @@ case class TransferTransaction[P <: Proposition: EvidenceProducer: Identifiable]
   /**
    * New boxes created from this transaction
    */
-  val newBoxes: Traversable[Box] = {
+  val newBoxes: Iterable[Box] = {
     val params = TransferTransaction.boxParams(this)
 
     val feeChangeBox =
-      if (fee > 0L) Traversable(Box(params._1.evidence, params._1.nonce, "PolyBox", params._1.value))
-      else Traversable()
+      if (fee > 0L) Iterable(Box(params._1.evidence, params._1.nonce, "PolyBox", params._1.value))
+      else Iterable()
 
     val boxes = params._2.map {
       case BoxParams(ev, n, v) =>
@@ -115,7 +115,7 @@ object TransferTransaction {
   def boxParams[
     T <: TokenValueHolder,
     P <: Proposition
-  ](tx: TransferTransaction[P]): (BoxParams[SimpleValue], Traversable[BoxParams[TokenValueHolder]]) = {
+  ](tx: TransferTransaction[P]): (BoxParams[SimpleValue], Iterable[BoxParams[TokenValueHolder]]) = {
     // known input data (similar to messageToSign but without newBoxes since they aren't known yet)
 
     val inputBytes =
@@ -125,7 +125,7 @@ object TransferTransaction {
       Longs.toByteArray(tx.fee)
 
     def calcNonce(index: Int): Long = {
-      val digest = Blake2b256.hash(inputBytes ++ Ints.toByteArray(index)).getOrThrow()
+      val digest = blake2b256.hash(inputBytes ++ Ints.toByteArray(index))
       Longs.fromByteArray(digest.value.take(Longs.BYTES))
     }
 

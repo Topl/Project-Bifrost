@@ -10,7 +10,7 @@ import cats.implicits._
 import co.topl.akkahttprpc.implicits.client.rpcToClient
 import co.topl.akkahttprpc.utils.Retry
 import co.topl.akkahttprpc.{RequestModifier, Rpc, RpcClientFailure, RpcError}
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.digest.Digest32
 import co.topl.crypto.hash.implicits._
 import co.topl.modifier.ModifierId
@@ -83,7 +83,7 @@ case class NodeRpcApi(host: String, rpcPort: Int)(implicit system: ActorSystem, 
 object NodeRpcApi {
 
   val ApiKey = "integration-test-key"
-  val ApiKeyHash: Digest32 = Blake2b256.hash(ApiKey.getBytes).getOrThrow()
+  val ApiKeyHash: Digest32 = blake2b256.hash(ApiKey.getBytes).getOrThrow()
   val ApiKeyHashBase58: String = Base58.encode(ApiKeyHash)
 
   def apply(node: BifrostDockerNode)(implicit system: ActorSystem, dockerClient: DockerClient): NodeRpcApi = {

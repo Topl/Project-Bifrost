@@ -3,7 +3,6 @@ package co.topl.utils.codecs
 import cats.Eq
 import cats.data.{Validated, ValidatedNec}
 import cats.implicits._
-import io.iohk.iodb.ByteArrayWrapper
 
 import scala.language.implicitConversions
 
@@ -129,8 +128,6 @@ object FromBytes {
 
   trait Instances {
     implicit val identityBytesDecoder: FromBytes[Infallible, Array[Byte]] = infallible(identity)
-
-    implicit def byteArrayWrapperDecoder: FromBytes[Infallible, ByteArrayWrapper] = infallible(ByteArrayWrapper(_))
   }
 
   object implicits extends ToOps with Instances

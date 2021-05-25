@@ -1,7 +1,7 @@
-FROM ghcr.io/graalvm/graalvm-ce:java8-21.0.0
+FROM ghcr.io/graalvm/graalvm-ce:java11-21.1.0
 
-ENV SCALA_VERSION 2.12.13
-ENV SBT_VERSION 1.4.6
+ENV SCALA_VERSION 2.13.5
+ENV SBT_VERSION 1.5.0
 
 RUN microdnf update -y \
  && microdnf install -y wget git \

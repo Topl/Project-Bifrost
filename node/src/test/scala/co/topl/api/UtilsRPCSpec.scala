@@ -3,7 +3,7 @@ package co.topl.api
 import akka.util.ByteString
 import co.topl.akkahttprpc.InvalidParametersError
 import co.topl.attestation.Address
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.implicits._
 import co.topl.modifier.box.AssetCode
 import co.topl.rpc.ToplRpcErrors
@@ -94,7 +94,7 @@ class UtilsRPCSpec extends AnyWordSpec with Matchers with RPCMockState with Eith
         val res: Json = parse(responseAs[String]).value
         val hash = res.hcursor.downField("result").get[String]("hash").value
 
-        hash shouldEqual Base58.encode(Blake2b256.hash("Hello World".getBytes).getOrThrow())
+        hash shouldEqual Base58.encode(blake2b256.hash("Hello World".getBytes))
         res.hcursor.downField("error").values shouldBe None
       }
     }

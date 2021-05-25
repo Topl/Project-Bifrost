@@ -521,7 +521,7 @@ class NetworkController(
           val upnpAddress = appContext.upnpGateway.map(_.externalAddress)
 
           val valid =
-            listenAddresses.exists(myAddress.contains) || upnpAddress.exists(
+            listenAddresses.exists(address => myAddress.contains(address.getAddress)) || upnpAddress.exists(
               myAddress.contains
             )
 
@@ -536,13 +536,13 @@ class NetworkController(
           /** address was valid */
           case Success(res: Boolean) if res => true
           /** address was not valid */
-          case Success(res: Boolean) if !res => false
+          case Success(_) => false
           case Failure(ex) =>
             log.error("There was an error while attempting to validate the declared address: ", ex)
             false
         }
 
-      case None =>
+      case _ =>
         log.info(s"No declared address was provided. Skipping address validation.")
         true
     }

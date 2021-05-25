@@ -4,7 +4,7 @@ import attestation.AddressEncoder.NetworkPrefix
 import attestation.Evidence.{EvidenceContent, EvidenceTypePrefix}
 import attestation.serialization.PropositionSerializer
 import co.topl.crypto.PublicKey
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.implicits._
 import co.topl.crypto.signatures.Curve25519
 import co.topl.utils.codecs.AsBytes.implicits._
@@ -92,7 +92,7 @@ object PublicKeyPropositionCurve25519 {
 
   implicit val evProducer: EvidenceProducer[PublicKeyPropositionCurve25519] =
     EvidenceProducer.instance[PublicKeyPropositionCurve25519] { prop: PublicKeyPropositionCurve25519 =>
-      Evidence(typePrefix, EvidenceContent(Blake2b256.hash(prop.bytes).getOrThrow()))
+      Evidence(typePrefix, EvidenceContent(blake2b256.hash(prop.bytes)))
     }
 
   implicit val identifier: Identifiable[PublicKeyPropositionCurve25519] = Identifiable.instance { () =>
@@ -148,7 +148,7 @@ object ThresholdPropositionCurve25519 {
 
   implicit val evProducer: EvidenceProducer[ThresholdPropositionCurve25519] =
     EvidenceProducer.instance[ThresholdPropositionCurve25519] { prop: ThresholdPropositionCurve25519 =>
-      Evidence(typePrefix, EvidenceContent(Blake2b256.hash(prop.bytes).getOrThrow()))
+      Evidence(typePrefix, EvidenceContent(blake2b256.hash(prop.bytes)))
     }
 
   implicit val identifier: Identifiable[ThresholdPropositionCurve25519] = Identifiable.instance { () =>

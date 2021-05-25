@@ -1,6 +1,6 @@
 package attestation
 
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.utils.codecs.AsBytes.implicits._
 import co.topl.utils.encode.Base58
 import cats.implicits._
@@ -29,10 +29,9 @@ object AddressEncoder {
    * @return a 4 byte checksum value
    */
   private def genChecksum(addrBytes: Array[Byte]): Array[Byte] =
-    Blake2b256
+    blake2b256
       .hash(addrBytes)
-      .map(_.value)
-      .valueOr(err => throw new Exception(s"Failed to hash address bytes: $err"))
+      .value
       .take(checksumLength)
 
   def toString(addr: Address): String = {

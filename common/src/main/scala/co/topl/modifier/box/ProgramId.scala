@@ -1,6 +1,6 @@
 package co.topl.modifier.box
 
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.digest.Digest32
 import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 import co.topl.utils.codecs.AsBytes.implicits._
@@ -41,7 +41,7 @@ object ProgramId extends BifrostSerializer[ProgramId] {
     }
 
   def create(seed: Array[Byte]): ProgramId =
-    new ProgramId(Blake2b256.hash(seed).getOrThrow().value)
+    new ProgramId(blake2b256.hash(seed).value)
 
   override def serialize(obj: ProgramId, w: Writer): Unit =
     w.putBytes(obj.hashBytes)

@@ -1,6 +1,6 @@
 import attestation.AddressEncoder.NetworkPrefix
 import attestation.{Address, PrivateKeyCurve25519, PublicKeyPropositionCurve25519}
-import co.topl.crypto.hash.Blake2b256
+import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.implicits.toHashResultOps
 import co.topl.crypto.hash.digest.Digest32
 import crypto.KeyfileCurve25519
@@ -24,8 +24,8 @@ class KeysSpec extends AsyncFlatSpec with Matchers {
   val keyFileDir = "keyfiles/keyManagerTest"
   val keyManager: Keys[PrivateKeyCurve25519, KeyfileCurve25519] = Keys(keyFileDir, KeyfileCurve25519)
 
-  val randomBytes1: Digest32 = Blake2b256.hash(java.util.UUID.randomUUID.toString.getBytes).getOrThrow()
-  val randomBytes2: Digest32 = Blake2b256.hash(java.util.UUID.randomUUID.toString.getBytes).getOrThrow()
+  val randomBytes1: Digest32 = blake2b256.hash(java.util.UUID.randomUUID.toString.getBytes).getOrThrow()
+  val randomBytes2: Digest32 = blake2b256.hash(java.util.UUID.randomUUID.toString.getBytes).getOrThrow()
 
   //Create keys for testing
   var privateKeys: Set[PrivateKeyCurve25519] = keyManager.generateNewKeyPairs(2, Some("keystest")) match {
@@ -51,13 +51,13 @@ class KeysSpec extends AsyncFlatSpec with Matchers {
 
   //generate seed
   val seedString: String = java.util.UUID.randomUUID.toString
-  val seed1: Digest32 = Blake2b256.hash(seedString.getBytes).getOrThrow()
+  val seed1: Digest32 = blake2b256.hash(seedString.getBytes).getOrThrow()
 
   //------------------------------------------------------------------------------------
   //Signed messages
   //Should have same input to check determinism
-  val messageBytes: Digest32 = Blake2b256.hash("sameEntropic".getBytes).getOrThrow()
-  val messageToSign: Digest32 = Blake2b256.hash(java.util.UUID.randomUUID.toString.getBytes).getOrThrow()
+  val messageBytes: Digest32 = blake2b256.hash("sameEntropic".getBytes).getOrThrow()
+  val messageToSign: Digest32 = blake2b256.hash(java.util.UUID.randomUUID.toString.getBytes).getOrThrow()
 
   it should "Match its signature to the expected sender private key" in {
     //Entropic input to input for pub/priv keypair

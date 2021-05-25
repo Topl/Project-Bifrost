@@ -1,8 +1,7 @@
 package co.topl.network.message
 
 import akka.util.ByteString
-import co.topl.crypto.hash.Blake2b256
-import co.topl.crypto.hash.implicits.toHashResultOps
+import co.topl.crypto.hash.blake2b256
 import co.topl.network.MaliciousBehaviorException
 import co.topl.network.peer.ConnectedPeer
 
@@ -26,7 +25,7 @@ class MessageSerializer(specs: Seq[MessageSpec[_]], magicBytes: Array[Byte]) {
       .putInt(obj.dataLength)
 
     if (obj.dataLength > 0) {
-      val checksum = Blake2b256.hash(obj.dataBytes).getOrThrow().value.take(Message.ChecksumLength)
+      val checksum = blake2b256.hash(obj.dataBytes).value.take(Message.ChecksumLength)
       builder.putBytes(checksum).putBytes(obj.dataBytes)
     }
 
@@ -61,7 +60,7 @@ class MessageSerializer(specs: Seq[MessageSpec[_]], magicBytes: Array[Byte]) {
         val msgData = if (length > 0) {
           val checksum = it.getBytes(Message.ChecksumLength)
           val data = it.getBytes(length)
-          val digest = Blake2b256.hash(data).getOrThrow().value.take(Message.ChecksumLength)
+          val digest = blake2b256.hash(data).value.take(Message.ChecksumLength)
 
           /** peer reported incorrect checksum */
           if (!java.util.Arrays.equals(checksum, digest)) {
