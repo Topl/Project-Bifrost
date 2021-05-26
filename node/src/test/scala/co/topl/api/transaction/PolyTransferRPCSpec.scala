@@ -31,7 +31,7 @@ class PolyTransferRPCSpec extends AnyWordSpec with Matchers with RPCMockState wi
            |   "id": "2",
            |   "method": "topl_rawPolyTransfer",
            |   "params": [{
-           |     "propositionType": "PublicKeyCurve25519",
+           |     "propositionType": "PublicKeyEd25519",
            |     "recipients": [["$address", "1"]],
            |     "sender": ["$address"],
            |     "changeAddress": "$address",

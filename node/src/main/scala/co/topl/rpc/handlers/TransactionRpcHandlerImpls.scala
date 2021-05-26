@@ -3,7 +3,7 @@ package co.topl.rpc.handlers
 import cats.implicits._
 import co.topl.utils.codecs.AsBytes.implicits._
 import co.topl.akkahttprpc.{CustomError, RpcError, ThrowableData}
-import co.topl.attestation.{Address, Proposition, PublicKeyPropositionCurve25519, ThresholdPropositionCurve25519}
+import co.topl.attestation.{Address, Proposition, PublicKeyPropositionCurve25519, PublicKeyPropositionEd25519, ThresholdPropositionCurve25519}
 import co.topl.modifier.box.SimpleValue
 import co.topl.modifier.transaction.{ArbitTransfer, AssetTransfer, PolyTransfer, Transaction}
 import co.topl.modifier.transaction.validation.implicits._
@@ -81,6 +81,7 @@ class TransactionRpcHandlerImpls(
     val createRaw = params.propositionType match {
       case PublicKeyPropositionCurve25519.`typeString` => AssetTransfer.createRaw[PublicKeyPropositionCurve25519] _
       case ThresholdPropositionCurve25519.`typeString` => AssetTransfer.createRaw[ThresholdPropositionCurve25519] _
+      case PublicKeyPropositionEd25519.`typeString` => AssetTransfer.createRaw[PublicKeyPropositionEd25519] _
     }
 
     createRaw(
@@ -106,6 +107,7 @@ class TransactionRpcHandlerImpls(
     val createRaw = params.propositionType match {
       case PublicKeyPropositionCurve25519.`typeString` => ArbitTransfer.createRaw[PublicKeyPropositionCurve25519] _
       case ThresholdPropositionCurve25519.`typeString` => ArbitTransfer.createRaw[ThresholdPropositionCurve25519] _
+      case PublicKeyPropositionEd25519.`typeString` => ArbitTransfer.createRaw[PublicKeyPropositionEd25519] _
     }
 
     createRaw(
@@ -133,6 +135,8 @@ class TransactionRpcHandlerImpls(
           PolyTransfer.createRaw[PublicKeyPropositionCurve25519] _
         case ThresholdPropositionCurve25519.`typeString` =>
           PolyTransfer.createRaw[ThresholdPropositionCurve25519] _
+        case PublicKeyPropositionEd25519.`typeString` =>
+          PolyTransfer.createRaw[PublicKeyPropositionEd25519] _
       }
 
     f(

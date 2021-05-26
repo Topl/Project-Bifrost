@@ -34,7 +34,7 @@ class AssetRPCSpec extends AnyWordSpec with Matchers with RPCMockState {
            |   "id": "2",
            |   "method": "topl_rawAssetTransfer",
            |   "params": [{
-           |     "propositionType": "PublicKeyCurve25519",
+           |     "propositionType": "PublicKeyEd25519",
            |     "recipients":
            |    [
            |  [

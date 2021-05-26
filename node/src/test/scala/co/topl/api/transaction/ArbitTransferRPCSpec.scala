@@ -29,7 +29,7 @@ class ArbitTransferRPCSpec extends AnyWordSpec with Matchers with RPCMockState w
            |   "id": "2",
            |   "method": "topl_rawArbitTransfer",
            |   "params": [{
-           |     "propositionType": "PublicKeyCurve25519",
+           |     "propositionType": "PublicKeyEd25519",
            |     "recipients": [["$address", "1"]],
            |     "sender": ["$address"],
            |     "changeAddress": "$address",
