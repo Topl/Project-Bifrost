@@ -3,7 +3,7 @@ package co.topl.attestation.keyManagement
 import cats.implicits._
 import co.topl.attestation.{PublicKeyPropositionEd25519, SignatureEd25519}
 import co.topl.crypto.implicits._
-import co.topl.crypto.signatures.eddsa.Ed25519
+import co.topl.crypto.signatures.Ed25519
 import co.topl.crypto.{PrivateKey, PublicKey}
 import co.topl.utils.serialization.{BifrostSerializer, Reader, Writer}
 

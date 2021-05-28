@@ -1,10 +1,5 @@
 package co.topl.crypto.signatures.eddsa
 
-import cats.implicits._
-import co.topl.crypto.hash.sha256
-import co.topl.crypto.signatures._
-import co.topl.crypto.{PrivateKey, PublicKey, SharedSecret}
-
 import java.security.SecureRandom
 import java.util
 
@@ -13,21 +8,12 @@ import java.util
  * Ed25519 ported from BouncyCastle
  * Licensing: https://www.bouncycastle.org/licence.html
  * Copyright (c) 2000 - 2021 The Legion of the Bouncy Castle Inc. (https://www.bouncycastle.org)
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
- * permit persons to whom the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
- * OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-object Ed25519 extends EC with EllipticCurveSignatureScheme {
+class BouncyCastleEd25519 extends EC {
 
   def dom2(d: SHA512Digest, phflag: Byte, ctx: Array[Byte]): Unit =
     if (ctx.nonEmpty) {
@@ -326,30 +312,4 @@ object Ed25519 extends EC with EllipticCurveSignatureScheme {
     val phflag = 0x01.toByte
     implVerify(sig, sigOff, pk, pkOff, ctx, phflag, m, 0, m.length)
   }
-
-  override val SignatureLength: Int = SIGNATURE_SIZE
-  override val KeyLength: Int = SECRET_KEY_SIZE
-
-  override def createKeyPair(seed: Array[Byte]): (PrivateKey, PublicKey) = {
-    val sk:Array[Byte] = new Array[Byte](SECRET_KEY_SIZE)
-    val pk:Array[Byte] = new Array[Byte](PUBLIC_KEY_SIZE)
-    val hashedSeed = sha256.hash(seed)
-    generatePrivateKey(new SecureRandom(hashedSeed.value), sk)
-    generatePublicKey(sk, 0, pk, 0)
-    (PrivateKey(sk), PublicKey(pk))
-  }
-
-  override def sign(privateKey: PrivateKey, message: MessageToSign): Signature = {
-    require(privateKey.value.length == SECRET_KEY_SIZE)
-    val sig = new Array[Byte](SIGNATURE_SIZE)
-    sign(privateKey.value, 0, message, 0, message.length, sig, 0)
-    Signature(sig)
-  }
-
-  override def verify(signature: Signature, message: MessageToSign, publicKey: PublicKey): Boolean =
-    signature.value.length == SIGNATURE_SIZE &&
-    publicKey.value.length == PUBLIC_KEY_SIZE &&
-    verify(signature.value, 0, publicKey.value, 0, message, 0, message.length)
-
-  override def createSharedSecret(privateKey: PrivateKey, publicKey: PublicKey): SharedSecret = ???
 }

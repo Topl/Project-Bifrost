@@ -2,7 +2,7 @@ package co.topl.attestation.serialization
 
 import co.topl.attestation.PublicKeyPropositionEd25519
 import co.topl.crypto.PublicKey
-import co.topl.crypto.signatures.eddsa.Ed25519
+import co.topl.crypto.signatures.Ed25519
 import co.topl.utils.serialization.{BifrostSerializer, Reader, Writer}
 
 object PublicKeyPropositionEd25519Serializer extends BifrostSerializer[PublicKeyPropositionEd25519] {

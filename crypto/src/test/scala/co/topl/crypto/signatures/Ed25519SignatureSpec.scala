@@ -1,7 +1,6 @@
 package co.topl.crypto.signatures
 
 import co.topl.crypto.PrivateKey
-import co.topl.crypto.signatures.eddsa.Ed25519
 import co.topl.crypto.utils.Hex
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
@@ -14,13 +13,24 @@ class Ed25519SignatureSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChec
       whenever(!seed1.sameElements(seed2) && !message1.sameElements(message2)) {
         val keyPair = Ed25519.createKeyPair(seed1)
         val keyPair2 = Ed25519.createKeyPair(seed2)
-
         val sig = Ed25519.sign(keyPair._1, message1)
 
         Ed25519.verify(sig, message1, keyPair._2) shouldBe true
         Ed25519.verify(sig, message1, keyPair2._2) shouldBe false
         Ed25519.verify(sig, message2, keyPair._2) shouldBe false
+      }
+    }
+  }
 
+  property("with Ed25519, keyPairs generated with the same seed should be the same") {
+    forAll { seedBytes: Array[Byte] =>
+      whenever(seedBytes.size != 0) {
+
+        val keyPair1 = Ed25519.createKeyPair(seedBytes)
+        val keyPair2 = Ed25519.createKeyPair(seedBytes)
+
+        keyPair1._1 === keyPair2._1 shouldBe true
+        keyPair1._2 === keyPair2._2 shouldBe true
       }
     }
   }

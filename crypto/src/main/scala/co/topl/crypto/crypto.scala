@@ -21,9 +21,6 @@ package object crypto {
   @newtype
   case class PublicKey(value: Array[Byte])
 
-  @newtype
-  case class SharedSecret(value: Array[Byte])
-
   object implicits
       extends digest.Instances
       with digest.Digest.ToDigestOps

@@ -19,29 +19,18 @@ class Curve25519SignatureSpec extends AnyPropSpec with ScalaCheckDrivenPropertyC
         Curve25519.verify(sig, message1, keyPair._2) shouldBe true
         Curve25519.verify(sig, message1, keyPair2._2) should not be true
         Curve25519.verify(sig, message2, keyPair._2) should not be true
-
       }
     }
   }
 
-  property("shared secret should be same for both parties ") {
+  property("with Curve25519, keyPairs generated with the same seed should be the same") {
+    forAll { seedBytes: Array[Byte] =>
+      whenever(seedBytes.size != 0) {
+        val keyPair1 = Curve25519.createKeyPair(seedBytes)
+        val keyPair2 = Curve25519.createKeyPair(seedBytes)
 
-    forAll { (seed1: Array[Byte], seed2: Array[Byte]) =>
-      whenever(!seed1.sameElements(seed2)) {
-        val keyPair1 = Curve25519.createKeyPair(seed1)
-        val keyPair2 = Curve25519.createKeyPair(seed2)
-
-        val shared = Curve25519.createSharedSecret(keyPair1._1, keyPair2._2)
-        val sharedWithKeysReversed = Curve25519.createSharedSecret(keyPair2._1, keyPair1._2)
-
-        val badSharedSecret1 = Curve25519.createSharedSecret(PrivateKey(keyPair2._2.value), keyPair1._2)
-        val badSharedSecret2 = Curve25519.createSharedSecret(PrivateKey(keyPair2._2.value), keyPair1._2)
-
-        shared.value.sameElements(sharedWithKeysReversed.value) should be(true)
-
-        badSharedSecret1.value.sameElements(shared.value) shouldNot be(true)
-
-        badSharedSecret2.value.sameElements(shared.value) shouldNot be(true)
+        keyPair1._1 === keyPair2._1 shouldBe true
+        keyPair1._2 === keyPair2._2 shouldBe true
       }
     }
   }

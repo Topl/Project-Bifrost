@@ -1,6 +1,6 @@
 package co.topl.crypto.signatures
 
-import co.topl.crypto.{PrivateKey, PublicKey, SharedSecret}
+import co.topl.crypto.{PrivateKey, PublicKey}
 
 import java.security.SecureRandom
 
@@ -23,5 +23,4 @@ trait SigningFunctions {
 
   def verify(signature: Signature, message: MessageToSign, publicKey: PublicKey): Boolean
 
-  def createSharedSecret(privateKey: PrivateKey, publicKey: PublicKey): SharedSecret
 }

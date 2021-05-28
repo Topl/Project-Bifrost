@@ -3,7 +3,7 @@ package co.topl.attestation.keyManagement
 import co.topl.attestation.Address
 import co.topl.crypto.{PrivateKey, PublicKey}
 import co.topl.crypto.hash.blake2b256
-import co.topl.crypto.signatures.eddsa.Ed25519
+import co.topl.crypto.signatures.Ed25519
 import co.topl.utils.codecs.AsBytes.implicits.identityBytesEncoder
 import co.topl.utils.Extensions.StringOps
 import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
