@@ -1,6 +1,7 @@
 package co.topl.modifier
 
 import cats.implicits._
+import co.topl.crypto.hash.digest.implicits._
 import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.digest.Digest32
 import co.topl.crypto.hash.blake2b256
