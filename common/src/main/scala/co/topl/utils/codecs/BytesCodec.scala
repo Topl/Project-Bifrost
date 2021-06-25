@@ -3,6 +3,7 @@ package co.topl.utils.codecs
 import cats.Eq
 import cats.data.{Validated, ValidatedNec}
 import cats.implicits._
+import co.topl.utils.serialization.BifrostSerializer
 
 import scala.language.implicitConversions
 
@@ -58,6 +59,9 @@ object AsBytes {
 
   trait Instances {
     implicit val identityBytesEncoder: AsBytes[Infallible, Array[Byte]] = infallible(identity)
+
+    implicit def bifrostSerializerEncoder[T](implicit serializer: BifrostSerializer[T]): AsBytes[Infallible, T] =
+      infallible(serializer.toBytes)
 
     implicit def asBytesEq[T](implicit ev: AsBytes[_, T]): Eq[T] =
       (x: T, y: T) =>
@@ -128,6 +132,9 @@ object FromBytes {
 
   trait Instances {
     implicit val identityBytesDecoder: FromBytes[Infallible, Array[Byte]] = infallible(identity)
+
+    implicit def bifrostSerializerDecoder[T](implicit serializer: BifrostSerializer[T]): FromBytes[Throwable, T] =
+      bytes => serializer.parseBytes(bytes).toEither.toValidatedNec
   }
 
   object implicits extends ToOps with Instances

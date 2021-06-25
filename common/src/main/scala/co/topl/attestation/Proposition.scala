@@ -14,11 +14,13 @@ import co.topl.utils.NetworkType.NetworkPrefix
 import co.topl.utils.codecs.implicits._
 import co.topl.utils.StringDataTypes.implicits._
 import co.topl.utils.StringDataTypes.{Base58Data, DataEncodingValidationFailure}
+import co.topl.utils.codecs.{AsBytes, Infallible}
 import co.topl.utils.serialization.{BifrostSerializer, BytesSerializable}
 import co.topl.utils.{Identifiable, Identifier}
 import com.google.common.primitives.Ints
 import io.circe.syntax.EncoderOps
 import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
+import simulacrum.typeclass
 
 import scala.collection.SortedSet
 
@@ -40,6 +42,16 @@ sealed trait Proposition extends BytesSerializable {
   }
 
   override def hashCode(): Int = Ints.fromByteArray(bytes)
+}
+
+@typeclass
+trait PropositionNew[T] {
+  def evidence(t: T): Evidence
+}
+
+object PropositionNew {
+  def instance[T](prefix: EvidenceTypePrefix, serialize: T => Array[Byte]): PropositionNew[T] =
+    (t: T) => Evidence(prefix, EvidenceContent(blake2b256.hash(serialize(t))))
 }
 
 object Proposition {

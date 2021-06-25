@@ -8,6 +8,7 @@ import co.topl.crypto.PublicKey
 import co.topl.utils.codecs.implicits._
 import co.topl.utils.StringDataTypes.Base58Data
 import co.topl.utils.StringDataTypes.implicits._
+import co.topl.utils.codecs.AsBytes
 import co.topl.utils.serialization.{BifrostSerializer, BytesSerializable}
 import com.google.common.primitives.Ints
 import io.circe.syntax.EncoderOps
@@ -38,6 +39,17 @@ sealed trait Proof[P <: Proposition] extends BytesSerializable {
 
   override def hashCode(): Int = Ints.fromByteArray(bytes)
 
+}
+
+abstract class ProofNew[T, P: PropositionNew] {
+  def isValid(t: T, proposition: P, message: Array[Byte]): Boolean
+}
+
+object ProofNew {
+  def instance[T, P: PropositionNew](isValidFunc: (T, P, Array[Byte]) => Boolean): ProofNew[T, P] =
+    new ProofNew[T, P] {
+      override def isValid(t: T, proposition: P, message: Array[Byte]): Boolean = isValidFunc(t, proposition, message)
+    }
 }
 
 object Proof {

@@ -3,6 +3,7 @@ package co.topl.attestation
 import cats.implicits._
 import co.topl.attestation.AddressCodec.implicits._
 import co.topl.attestation.EvidenceProducer.Syntax._
+import co.topl.attestation.PropositionNew.ops._
 import co.topl.utils.codecs.implicits._
 import co.topl.utils.NetworkType.NetworkPrefix
 import co.topl.utils.StringDataTypes.Base58Data
@@ -57,6 +58,9 @@ object Address {
    */
   def from[P <: Proposition: EvidenceProducer](proposition: P)(implicit networkPrefix: NetworkPrefix): Address =
     Address(proposition.generateEvidence)
+
+  def from[P : PropositionNew](proposition: P)(implicit networkPrefix: NetworkPrefix): Address =
+    Address(proposition.evidence)
 }
 
 object AddressSerializer extends BifrostSerializer[Address] {

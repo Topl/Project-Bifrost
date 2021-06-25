@@ -1,5 +1,9 @@
 package co.topl.attestation
 
+import simulacrum.typeclass
+
+import scala.language.implicitConversions
+
 /**
  * EvidenceProducer is a type-class that must be implemented by a proposition in order to generate the evidence
  * for that proposition. The evidence is then used to construct an address that holds outputs from a transaction.
@@ -8,6 +12,11 @@ package co.topl.attestation
  */
 sealed trait EvidenceProducer[P <: Proposition] {
   def generateEvidence(prop: P): Evidence
+}
+
+@typeclass
+trait EvidenceProducerNew[T] {
+  def generateEvidence(t: T): Evidence
 }
 
 object EvidenceProducer {
