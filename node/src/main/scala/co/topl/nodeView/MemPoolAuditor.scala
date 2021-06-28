@@ -11,6 +11,7 @@ import akka.actor.{
   OneForOneStrategy,
   Props
 }
+import akka.dispatch.Dispatchers
 import co.topl.attestation.Address
 import co.topl.modifier.ModifierId
 import co.topl.modifier.block.{Block, BlockHeader}
@@ -67,7 +68,10 @@ class MempoolAuditor[
   private var poolReaderOpt: Option[MR] = None
 
   private val worker: ActorRef =
-    context.actorOf(Props(new CleanupWorker(nodeViewHolderRef, settings, appContext)))
+    context.actorOf(
+      Props(new CleanupWorker(nodeViewHolderRef, settings, appContext))
+        .withDispatcher(Dispatchers.DefaultBlockingDispatcherId)
+    )
 
   override def preStart(): Unit = {
     context.system.eventStream.subscribe(self, classOf[SemanticallySuccessfulModifier[_]])
@@ -180,6 +184,7 @@ object MempoolAuditorRef {
     MR <: MemPoolReader[Transaction.TX]: ClassTag
   ](settings: AppSettings, appContext: AppContext, nodeViewHolderRef: ActorRef, networkControllerRef: ActorRef): Props =
     Props(new MempoolAuditor(nodeViewHolderRef, networkControllerRef, settings, appContext))
+      .withDispatcher(Dispatchers.DefaultBlockingDispatcherId)
 
   def apply[
     SR <: StateReader[ProgramId, Address]: ClassTag,

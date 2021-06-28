@@ -1,6 +1,7 @@
 package co.topl.wallet
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.dispatch.Dispatchers
 import akka.pattern.pipe
 import akka.util.Timeout
 import co.topl.attestation.{Address, AddressEncoder}
@@ -17,7 +18,7 @@ import io.circe.parser.parse
 import io.circe.syntax._
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 /**
@@ -28,12 +29,12 @@ import scala.util.{Failure, Success}
 class WalletConnectionHandler[
   PMOD <: PersistentNodeViewModifier
 ](settings:      RPCApiSettings, appContext: AppContext, nodeViewHolderRef: ActorRef)(implicit
-  ec:            ExecutionContext,
   networkPrefix: NetworkPrefix
 ) extends Actor
     with Logging {
 
   import WalletConnectionHandler._
+  import context.dispatcher
 
   implicit val timeout: Timeout = 10.seconds
   implicit val actorSystem: ActorSystem = context.system
@@ -234,21 +235,18 @@ object WalletConnectionHandlerRef {
 
   def props[
     PMOD <: PersistentNodeViewModifier
-  ](settings: AppSettings, appContext: AppContext, nodeViewHolderRef: ActorRef)(implicit
-    ec:       ExecutionContext
-  ): Props =
+  ](settings: AppSettings, appContext: AppContext, nodeViewHolderRef: ActorRef): Props =
     Props(
       new WalletConnectionHandler[PMOD](settings.rpcApi, appContext, nodeViewHolderRef)(
-        ec,
         appContext.networkType.netPrefix
       )
     )
+      .withDispatcher(Dispatchers.DefaultBlockingDispatcherId)
 
   def apply[
     PMOD <: PersistentNodeViewModifier
   ](name:   String, settings: AppSettings, appContext: AppContext, nodeViewHolderRef: ActorRef)(implicit
-    system: ActorSystem,
-    ec:     ExecutionContext
+    system: ActorSystem
   ): ActorRef =
     system.actorOf(props[PMOD](settings, appContext, nodeViewHolderRef), name)
 }

@@ -1,6 +1,7 @@
 package co.topl.consensus
 
 import akka.actor._
+import akka.dispatch.Dispatchers
 import akka.pattern.{ask, pipe}
 import akka.util.Timeout
 import cats.implicits._
@@ -35,9 +36,11 @@ class Forger[
   HR <: HistoryReader[Block, BifrostSyncInfo]: ClassTag,
   SR <: StateReader[ProgramId, Address]: ClassTag,
   MR <: MemPoolReader[Transaction.TX]: ClassTag
-](settings: AppSettings, appContext: AppContext, keyManager: ActorRef)(implicit ec: ExecutionContext, np: NetworkPrefix)
+](settings: AppSettings, appContext: AppContext, keyManager: ActorRef)(implicit np: NetworkPrefix)
     extends Actor
     with Logging {
+
+  import context.dispatcher
 
   type TX = Transaction.TX
 
@@ -469,18 +472,17 @@ object ForgerRef {
     SR <: StateReader[ProgramId, Address]: ClassTag,
     MR <: MemPoolReader[Transaction.TX]: ClassTag
   ](settings: AppSettings, appContext: AppContext, keyManager: ActorRef)(implicit
-    ec:       ExecutionContext,
     np:       NetworkPrefix
   ): Props =
     Props(new Forger[HR, SR, MR](settings, appContext, keyManager))
+      .withDispatcher(Dispatchers.DefaultBlockingDispatcherId)
 
   def apply[
     HR <: HistoryReader[Block, BifrostSyncInfo]: ClassTag,
     SR <: StateReader[ProgramId, Address]: ClassTag,
     MR <: MemPoolReader[Transaction.TX]: ClassTag
   ](name:   String, settings: AppSettings, appContext: AppContext, keyManager: ActorRef)(implicit
-    system: ActorSystem,
-    ec:     ExecutionContext
+    system: ActorSystem
   ): ActorRef = {
     implicit val np: NetworkPrefix = appContext.networkType.netPrefix
     system.actorOf(props[HR, SR, MR](settings, appContext, keyManager), name)

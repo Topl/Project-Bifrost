@@ -1,6 +1,7 @@
 package co.topl.http.api.endpoints
 
-import akka.actor.{ActorRef, ActorRefFactory}
+import akka.actor.{ActorRef, ActorSystem}
+import akka.dispatch.Dispatchers
 import co.topl.attestation.Address
 import co.topl.http.api.{ApiEndpointWithView, Namespace, ToplNamespace}
 import co.topl.modifier.ModifierId
@@ -14,14 +15,13 @@ import co.topl.utils.NetworkType.NetworkPrefix
 import io.circe.Json
 import io.circe.syntax._
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 case class NodeViewApiEndpoint(
   override val settings: RPCApiSettings,
   appContext:            AppContext,
   nodeViewHolderRef:     ActorRef
-)(implicit val context:  ActorRefFactory)
+)(implicit val system:   ActorSystem)
     extends ApiEndpointWithView {
 
   import co.topl.utils.codecs.Int128Codec._
@@ -29,6 +29,12 @@ case class NodeViewApiEndpoint(
   type HIS = History
   type MS = State
   type MP = MemPool
+
+  override protected def blockingExecutionContext: ExecutionContext =
+    system.dispatchers.lookup(Dispatchers.DefaultBlockingDispatcherId)
+
+  implicit private val ec: ExecutionContext =
+    system.dispatcher
 
   // Establish the expected network prefix for addresses
   implicit val networkPrefix: NetworkPrefix = appContext.networkType.netPrefix

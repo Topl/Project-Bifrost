@@ -1,6 +1,7 @@
 package co.topl.nodeView
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props, Stash}
+import akka.dispatch.Dispatchers
 import akka.pattern.ask
 import akka.util.Timeout
 import co.topl.consensus.Forger
@@ -24,7 +25,7 @@ import co.topl.utils.serialization.BifrostSerializer
 
 import scala.annotation.tailrec
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -34,9 +35,12 @@ import scala.util.{Failure, Success, Try}
  * The instances are read-only for external world.
  * Updates of the composite view(the instances are to be performed atomically.
  */
-class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit ec: ExecutionContext, np: NetworkPrefix)
+class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit np: NetworkPrefix)
     extends Actor
-    with Logging {
+    with Logging
+    with Stash {
+
+  import context.dispatcher
 
   // Import the types of messages this actor can RECEIVE
   import NodeViewHolder.ReceivableMessages._
@@ -54,7 +58,7 @@ class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit ec:
    * state (result of log's modifiers application to pre-historical(genesis) state,
    * user-specific information stored in vault (it could be e.g. a wallet), and a memory pool.
    */
-  private var nodeView: NodeView = restoreState().getOrElse(genesisState)
+  private var nodeView: NodeView = _
 
   /**
    * Cache for modifiers. If modifiers are coming out-of-order, they are to be stored in this cache.
@@ -67,6 +71,7 @@ class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit ec:
 
   /** Define actor control behavior */
   override def preStart(): Unit = {
+    nodeView = restoreState().getOrElse(genesisState)
     // subscribe to particular messages this actor expects to receive
     context.system.eventStream.subscribe(self, classOf[LocallyGeneratedModifier[PMOD]])
 
@@ -96,14 +101,44 @@ class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit ec:
     getNodeViewChanges orElse
     nonsense
 
+  /**
+   * Syncing modifiers from another node takes a long time, especially for large batches.  To avoid blocking "read"
+   * requests, this actor can operate in a "busy" state such that new requests for "writes" are stashed while still
+   * being responsive to "read" requests.  Once the _current_ batch of modifications have been applied, all previously stashed
+   * messages are unstashed, and the actor returns to its normal/not-busy state
+   * @return
+   */
+  private def busyProcessingModifiers: Receive = {
+    val altProcessModifiers: Receive = {
+      case _: ModifiersFromRemote[_] =>
+        stash()
+      case _: LocallyGeneratedModifier[_] =>
+        stash()
+      case DoneProcessingModifiers =>
+        unstashAll()
+        context.become(receive)
+    }
+
+    altProcessModifiers orElse transactionsProcessing orElse getNodeViewChanges orElse nonsense
+  }
+
   // ----------- MESSAGE PROCESSING FUNCTIONS
 
   protected def processModifiers: Receive = {
-    case ModifiersFromRemote(mods: Iterable[PMOD] @unchecked) => processRemoteModifiers(mods)
-
+    case ModifiersFromRemote(mods: Iterable[PMOD] @unchecked) =>
+      import akka.pattern.pipe
+      // Process the modifications asynchronously in a "background" Future, and notify this actor once complete
+      Future(processRemoteModifiers(mods)).map(_ => DoneProcessingModifiers).pipeTo(self)
+      // But don't try to process more modifiers.
+      // Instead, move into the "busy" state until the previous Future completes.
+      context.become(busyProcessingModifiers)
     case LocallyGeneratedModifier(mod: Block) =>
+      import akka.pattern.pipe
       log.info(s"Got locally generated modifier ${mod.id} of type ${mod.modifierTypeId}")
-      pmodModify(mod)
+      // Same as above - process asynchronously
+      Future(pmodModify(mod)).map(_ => DoneProcessingModifiers).pipeTo(self)
+      // And move into "busy" state
+      context.become(busyProcessingModifiers)
   }
 
   protected def transactionsProcessing: Receive = {
@@ -144,13 +179,16 @@ class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit ec:
    */
   def restoreState(): Option[NodeView] =
     if (State.exists(settings)) {
-      Some(
+      log.info("Loading (or generating) data from local storage")
+      val result = Some(
         (
           History.readOrGenerate(settings),
           State.readOrGenerate(settings),
           MemPool.emptyPool
         )
       )
+      log.info("Finished loading (or generating) data from local storage")
+      result
     } else None
 
   /** Hard-coded initial view all the honest nodes in a network are making progress from. */
@@ -501,6 +539,8 @@ object NodeViewHolder {
 
     case class LocallyGeneratedModifier[PMOD <: PersistentNodeViewModifier](pmod: PMOD)
 
+    private[nodeView] case object DoneProcessingModifiers
+
     sealed trait NewTransactions { val txs: Iterable[Transaction.TX] }
 
     case class LocallyGeneratedTransaction(tx: Transaction.TX) extends NewTransactions {
@@ -520,12 +560,12 @@ object NodeViewHolder {
 
 object NodeViewHolderRef {
 
-  def props(settings: AppSettings, appContext: AppContext)(implicit ec: ExecutionContext): Props =
-    Props(new NodeViewHolder(settings, appContext)(ec, appContext.networkType.netPrefix))
+  def props(settings: AppSettings, appContext: AppContext): Props =
+    Props(new NodeViewHolder(settings, appContext)(appContext.networkType.netPrefix))
+      .withDispatcher(Dispatchers.DefaultBlockingDispatcherId)
 
   def apply(name: String, settings: AppSettings, appContext: AppContext)(implicit
-    system:       ActorSystem,
-    ec:           ExecutionContext
+    system:       ActorSystem
   ): ActorRef =
     system.actorOf(props(settings, appContext), name)
 }

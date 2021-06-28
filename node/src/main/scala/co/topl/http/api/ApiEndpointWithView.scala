@@ -19,6 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 trait ApiEndpointWithView extends ApiEndpoint {
 
   val nodeViewHolderRef: ActorRef
+  protected def blockingExecutionContext: ExecutionContext
 
   type HR = HistoryReader[Block, BifrostSyncInfo]
   type SR = StateReader[ProgramId, Address]
@@ -27,17 +28,17 @@ trait ApiEndpointWithView extends ApiEndpoint {
   protected def asyncHistory(f: HR => Json)(implicit ec: ExecutionContext): Future[Json] =
     (nodeViewHolderRef ? GetNodeViewChanges(history = true, state = false, mempool = false))
       .mapTo[ChangedHistory[HR]]
-      .map(ch => f(ch.reader))
+      .flatMap(c => Future(f(c.reader))(blockingExecutionContext))
 
   protected def asyncState(f: SR => Json)(implicit ec: ExecutionContext): Future[Json] =
     (nodeViewHolderRef ? GetNodeViewChanges(history = false, state = true, mempool = false))
       .mapTo[ChangedState[SR]]
-      .map(cs => f(cs.reader))
+      .flatMap(c => Future(f(c.reader))(blockingExecutionContext))
 
   protected def asyncMempool(f: MR => Json)(implicit ec: ExecutionContext): Future[Json] =
     (nodeViewHolderRef ? GetNodeViewChanges(history = false, state = false, mempool = true))
       .mapTo[ChangedMempool[MR]]
-      .map(cm => f(cm.reader))
+      .flatMap(c => Future(f(c.reader))(blockingExecutionContext))
 
   /** Helper function to ensure this node has the appropriate state to create a request raw transaction */
   protected def checkAddress(keys: Seq[Address], sr: SR): Unit = {

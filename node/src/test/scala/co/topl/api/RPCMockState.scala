@@ -56,7 +56,7 @@ trait RPCMockState extends AnyWordSpec with GenesisGenerators with ScalatestRout
   // NOTE: Some of these actors are TestActors in order to access the underlying instance so that we can manipulate
   //       the state of the underlying instance while testing. Use with caution
   protected val keyManagerRef: TestActorRef[KeyManager] = TestActorRef(
-    new KeyManager(rpcSettings, appContext)(system.getDispatcher, appContext.networkType.netPrefix)
+    new KeyManager(rpcSettings, appContext)(appContext.networkType.netPrefix)
   )
   protected val forgerRef: ActorRef = ForgerRef[HIS, ST, MP](Forger.actorName, rpcSettings, appContext, keyManagerRef)
 

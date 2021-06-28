@@ -1,5 +1,7 @@
 package co.topl.network.utils
 
+import akka.actor.ActorSystem
+import akka.dispatch.Dispatchers
 import co.topl.utils.{Logging, TimeProvider}
 import org.apache.commons.net.ntp.NTPUDPClient
 
@@ -16,7 +18,7 @@ object NetworkTime {
 
 case class NetworkTimeProviderSettings(server: String, updateEvery: FiniteDuration, timeout: FiniteDuration)
 
-class NetworkTimeProvider(ntpSettings: NetworkTimeProviderSettings)(implicit ec: ExecutionContext)
+class NetworkTimeProvider(ntpSettings: NetworkTimeProviderSettings)(implicit system: ActorSystem)
     extends TimeProvider
     with Logging {
 
@@ -25,6 +27,10 @@ class NetworkTimeProvider(ntpSettings: NetworkTimeProviderSettings)(implicit ec:
   private val client = new NTPUDPClient()
   client.setDefaultTimeout(ntpSettings.timeout.toMillis.toInt)
   client.open()
+  system.registerOnTermination(client.close())
+
+  private val blockingExecutionContext: ExecutionContext =
+    system.dispatchers.lookup(Dispatchers.DefaultBlockingDispatcherId)
 
   /**
    * Check if the NTP offset should be updated and returns current time (milliseconds)
@@ -39,8 +45,8 @@ class NetworkTimeProvider(ntpSettings: NetworkTimeProviderSettings)(implicit ec:
   private def updateOffset(): Future[NetworkTime.Offset] = Future {
     val info = client.getTime(InetAddress.getByName(ntpSettings.server))
     info.computeDetails()
-    info.getOffset
-  }
+    info.getOffset: NetworkTime.Offset
+  }(blockingExecutionContext)
 
   private def checkUpdateRequired(): Unit = {
     val time = NetworkTime.localWithOffset(offset.get())
@@ -58,7 +64,7 @@ class NetworkTimeProvider(ntpSettings: NetworkTimeProviderSettings)(implicit ec:
         case Failure(e) =>
           log.warn("Problems with NTP: ", e)
           lastUpdate.compareAndSet(time, lu)
-      }
+      }(system.dispatcher)
     } else {
       // No update required. Set lastUpdate back to it's initial value
       lastUpdate.compareAndSet(time, lu)

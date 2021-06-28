@@ -1,16 +1,13 @@
 package co.topl.http.api.endpoints
 
-import akka.actor.{ActorRef, ActorRefFactory}
+import akka.actor.{ActorRef, ActorSystem}
+import akka.dispatch.Dispatchers
 import akka.pattern.ask
 import co.topl.attestation.Address
 import co.topl.consensus.KeyManager.ReceivableMessages._
 import co.topl.http.api.{ApiEndpointWithView, DebugNamespace, ErrorResponse, Namespace}
 import co.topl.modifier.ModifierId
-import co.topl.modifier.block.Block
-import co.topl.network.NodeViewSynchronizer.ReceivableMessages.ChangedHistory
-import co.topl.network.message.BifrostSyncInfo
-import co.topl.nodeView.NodeViewHolder.ReceivableMessages.GetNodeViewChanges
-import co.topl.nodeView.history.{History, HistoryDebug, HistoryReader}
+import co.topl.nodeView.history.{History, HistoryDebug}
 import co.topl.nodeView.mempool.MemPool
 import co.topl.nodeView.state.State
 import co.topl.settings.{AppContext, RPCApiSettings}
@@ -18,21 +15,26 @@ import co.topl.utils.NetworkType.NetworkPrefix
 import io.circe.Json
 import io.circe.syntax._
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 case class DebugApiEndpoint(
-  settings:             RPCApiSettings,
-  appContext:           AppContext,
-  nodeViewHolderRef:    ActorRef,
-  keyManagerRef:        ActorRef
-)(implicit val context: ActorRefFactory)
+  settings:          RPCApiSettings,
+  appContext:        AppContext,
+  nodeViewHolderRef: ActorRef,
+  keyManagerRef:     ActorRef
+)(implicit system:   ActorSystem)
     extends ApiEndpointWithView {
 
   type HIS = History
   type MS = State
   type MP = MemPool
+
+  override protected def blockingExecutionContext: ExecutionContext =
+    system.dispatchers.lookup(Dispatchers.DefaultBlockingDispatcherId)
+
+  implicit private val ec: ExecutionContext =
+    system.dispatcher
 
   // Establish the expected network prefix for addresses
   implicit val networkPrefix: NetworkPrefix = appContext.networkType.netPrefix
@@ -95,11 +97,11 @@ case class DebugApiEndpoint(
    * @return
    */
   private def myBlocks(params: Json, id: String): Future[Json] =
-    (nodeViewHolderRef ? GetNodeViewChanges(history = true, state = false, mempool = false))
-      .mapTo[ChangedHistory[HistoryReader[Block, BifrostSyncInfo]]]
-      .flatMap { hr =>
-        (keyManagerRef ? ListKeys).mapTo[Set[Address]].map { myKeys =>
-          val blockNum = new HistoryDebug(hr.reader).count { b =>
+    (keyManagerRef ? ListKeys)
+      .mapTo[Set[Address]]
+      .flatMap { myKeys =>
+        asyncHistory { hr =>
+          val blockNum = new HistoryDebug(hr).count { b =>
             myKeys.map(_.evidence).contains(b.generatorBox.evidence)
           }
 

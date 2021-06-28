@@ -1,6 +1,7 @@
 package co.topl.http.api.endpoints
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSystem}
+import akka.dispatch.Dispatchers
 import co.topl.attestation.{Address, Proposition, PublicKeyPropositionCurve25519, ThresholdPropositionCurve25519}
 import co.topl.http.api.{ApiEndpointWithView, Namespace, ToplNamespace}
 import co.topl.modifier.box.{AssetValue, SimpleValue}
@@ -30,7 +31,7 @@ case class TransactionApiEndpoint(
   settings:          RPCApiSettings,
   appContext:        AppContext,
   nodeViewHolderRef: ActorRef
-)(implicit val ec:   ExecutionContext)
+)(implicit system:   ActorSystem)
     extends ApiEndpointWithView {
 
   import Int128Codec._
@@ -38,6 +39,12 @@ case class TransactionApiEndpoint(
   type HIS = History
   type MS = State
   type MP = MemPool
+
+  override protected def blockingExecutionContext: ExecutionContext =
+    system.dispatchers.lookup(Dispatchers.DefaultBlockingDispatcherId)
+
+  implicit private val ec: ExecutionContext =
+    system.dispatcher
 
   // Establish the expected network prefix for addresses
   implicit val networkPrefix: NetworkPrefix = appContext.networkType.netPrefix

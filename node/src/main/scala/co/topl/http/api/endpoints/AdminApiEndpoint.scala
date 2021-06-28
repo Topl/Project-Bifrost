@@ -1,6 +1,6 @@
 package co.topl.http.api.endpoints
 
-import akka.actor.{ActorRef, ActorRefFactory}
+import akka.actor.{ActorRef, ActorSystem}
 import akka.pattern.ask
 import co.topl.attestation.{Address, PublicKeyPropositionCurve25519}
 import co.topl.consensus.Forger.ReceivableMessages._
@@ -11,7 +11,6 @@ import co.topl.utils.NetworkType.NetworkPrefix
 import io.circe.Json
 import io.circe.syntax.EncoderOps
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
@@ -20,8 +19,10 @@ case class AdminApiEndpoint(
   appContext:            AppContext,
   forgerRef:             ActorRef,
   keyHolderRef:          ActorRef
-)(implicit val context:  ActorRefFactory)
+)(implicit system:       ActorSystem)
     extends ApiEndpoint {
+
+  import system.dispatcher
 
   // Establish the expected network prefix for addresses
   implicit val networkPrefix: NetworkPrefix = appContext.networkType.netPrefix

@@ -1,6 +1,7 @@
 package co.topl.network
 
 import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.dispatch.Dispatchers
 import co.topl.modifier.NodeViewModifier.{idsToString, ModifierTypeId}
 import co.topl.modifier.block.{Block, PersistentNodeViewModifier}
 import co.topl.modifier.transaction.Transaction
@@ -24,7 +25,6 @@ import co.topl.utils.{Logging, MalformedModifierError}
 
 import java.net.InetSocketAddress
 import scala.annotation.tailrec
-import scala.concurrent.ExecutionContext
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 
@@ -41,13 +41,13 @@ class NodeViewSynchronizer[
   PMOD <: PersistentNodeViewModifier,
   HR <: HistoryReader[PMOD, SI]: ClassTag,
   MR <: MemPoolReader[TX]: ClassTag
-](networkControllerRef: ActorRef, viewHolderRef: ActorRef, settings: AppSettings, appContext: AppContext)(implicit
-  ec:                   ExecutionContext
-) extends Synchronizer
+](networkControllerRef: ActorRef, viewHolderRef: ActorRef, settings: AppSettings, appContext: AppContext)
+    extends Synchronizer
     with Logging {
 
   /** Import the types of messages this actor may SEND */
   import co.topl.network.NodeViewSynchronizer.ReceivableMessages._
+  import context.dispatcher
 
   /** the maximum number of inventory modifiers to compare with remote peers */
   protected val desiredInvObjects: Int = settings.network.desiredInvObjects
@@ -707,8 +707,9 @@ object NodeViewSynchronizerRef {
     viewHolderRef:        ActorRef,
     settings:             AppSettings,
     appContext:           AppContext
-  )(implicit ec:          ExecutionContext): Props =
+  ): Props =
     Props(new NodeViewSynchronizer[TX, SI, PMOD, HR, MR](networkControllerRef, viewHolderRef, settings, appContext))
+      .withDispatcher(Dispatchers.DefaultBlockingDispatcherId)
 
   def apply[
     TX <: Transaction.TX,
@@ -722,6 +723,6 @@ object NodeViewSynchronizerRef {
     viewHolderRef:        ActorRef,
     settings:             AppSettings,
     appContext:           AppContext
-  )(implicit system:      ActorSystem, ec: ExecutionContext): ActorRef =
+  )(implicit system:      ActorSystem): ActorRef =
     system.actorOf(props[TX, SI, PMOD, HR, MR](networkControllerRef, viewHolderRef, settings, appContext), name)
 }
