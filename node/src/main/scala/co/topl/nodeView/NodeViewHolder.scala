@@ -25,7 +25,7 @@ import co.topl.utils.serialization.BifrostSerializer
 
 import scala.annotation.tailrec
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -61,6 +61,15 @@ class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit np:
   private var nodeView: NodeView = _
 
   /**
+   * While this actor is processing modifiers asynchronously, it is busy.  Upon completion of the processing, this
+   * Promise is completed.
+   *
+   * This Promise exists because this Actor could be instructed to shutdown while a batch of modifiers are still processing.
+   * The actor should wait until the batch finishes before terminating.
+   */
+  private var busyCompletion: Promise[DoneProcessingModifiers.type] = _
+
+  /**
    * Cache for modifiers. If modifiers are coming out-of-order, they are to be stored in this cache.
    */
   protected lazy val modifiersCache: ModifiersCache[PMOD, HIS] =
@@ -87,6 +96,10 @@ class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit np:
 
   override def postStop: Unit = {
     log.info(s"${Console.RED}Application is going down NOW!${Console.RESET}")
+    Option(busyCompletion).foreach { p =>
+      log.info("Awaiting current batch of modifiers to be written")
+      Await.result(p.future, 1.minute)
+    }
     nodeView._1.closeStorage() // close History storage
     nodeView._2.closeStorage() // close State storage
   }
@@ -125,20 +138,33 @@ class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit np:
   // ----------- MESSAGE PROCESSING FUNCTIONS
 
   protected def processModifiers: Receive = {
-    case ModifiersFromRemote(mods: Iterable[PMOD] @unchecked) =>
-      import akka.pattern.pipe
-      // Process the modifications asynchronously in a "background" Future, and notify this actor once complete
-      Future(processRemoteModifiers(mods)).map(_ => DoneProcessingModifiers).pipeTo(self)
-      // But don't try to process more modifiers.
-      // Instead, move into the "busy" state until the previous Future completes.
+    import akka.pattern.pipe
+
+    /**
+     * Process the modifications asynchronously in a "background" Future, and notify this actor once complete
+     * Instead, move into the "busy" state until the previous Future completes.
+     * But don't try to process more modifiers.
+     * @param f The side-effecting operation to run
+     */
+    def processAsync(f: => Unit): Unit = {
+      busyCompletion = Promise().completeWith(
+        Future(f)
+          .andThen { case Failure(exception) =>
+            log.error("Failed to process remote modifiers.", exception)
+          }
+          .transform(_ => Success(DoneProcessingModifiers))
+          .pipeTo(self)
+      )
       context.become(busyProcessingModifiers)
-    case LocallyGeneratedModifier(mod: Block) =>
-      import akka.pattern.pipe
-      log.info(s"Got locally generated modifier ${mod.id} of type ${mod.modifierTypeId}")
-      // Same as above - process asynchronously
-      Future(pmodModify(mod)).map(_ => DoneProcessingModifiers).pipeTo(self)
-      // And move into "busy" state
-      context.become(busyProcessingModifiers)
+    }
+
+    {
+      case ModifiersFromRemote(mods: Iterable[PMOD] @unchecked) =>
+        processAsync(processRemoteModifiers(mods))
+      case LocallyGeneratedModifier(mod: Block) =>
+        log.info(s"Got locally generated modifier ${mod.id} of type ${mod.modifierTypeId}")
+        processAsync(pmodModify(mod))
+    }
   }
 
   protected def transactionsProcessing: Receive = {
