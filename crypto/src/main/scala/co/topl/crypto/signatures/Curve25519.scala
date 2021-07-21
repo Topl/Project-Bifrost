@@ -1,6 +1,5 @@
 package co.topl.crypto.signatures
 
-import cats.implicits._
 import co.topl.crypto.hash.sha256
 import co.topl.crypto.{PrivateKey, PublicKey}
 import org.whispersystems.curve25519.OpportunisticCurve25519Provider

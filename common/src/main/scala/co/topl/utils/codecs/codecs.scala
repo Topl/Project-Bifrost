@@ -9,4 +9,5 @@ package object codecs {
       with FromBytes.ToOps
       with CryptoCodec.CryptoCodecInstances
       with StringDataTypesCodec.StringTypesInstances
+      with SizedByteVectorCodec.Instances
 }

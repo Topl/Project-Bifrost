@@ -99,7 +99,8 @@ object Dependencies {
     Seq(
       "com.typesafe.akka"      %% "akka-actor"              % akkaVersion,
       "org.typelevel"          %% "simulacrum"              % "1.0.0",
-      "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.4"
+      "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.4",
+      "org.scodec"             %% "scodec-bits"             % "1.1.27"
     ) ++
     logging ++
     circe ++
@@ -155,8 +156,8 @@ object Dependencies {
 
   lazy val crypto: Seq[ModuleID] =
     Seq(
-      "org.typelevel" %% "simulacrum" % "1.0.0",
-      "org.typelevel" %% "cats-core"  % "2.3.0",
+      "org.typelevel"     %% "simulacrum"      % "1.0.0",
+      "org.typelevel"     %% "cats-core"       % "2.3.0",
       "org.bouncycastle"   % "bcprov-jdk15on"  % "1.68",
       "org.whispersystems" % "curve25519-java" % "0.5.0"
     ) ++

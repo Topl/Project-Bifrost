@@ -11,9 +11,9 @@ import co.topl.crypto.hash.blake2b256
 import co.topl.crypto.hash.implicits._
 import co.topl.crypto.signatures.Curve25519
 import co.topl.utils.NetworkType.NetworkPrefix
-import co.topl.utils.codecs.implicits._
 import co.topl.utils.StringDataTypes.implicits._
 import co.topl.utils.StringDataTypes.{Base58Data, DataEncodingValidationFailure}
+import co.topl.utils.codecs.implicits._
 import co.topl.utils.serialization.{BifrostSerializer, BytesSerializable}
 import co.topl.utils.{Identifiable, Identifier}
 import com.google.common.primitives.Ints

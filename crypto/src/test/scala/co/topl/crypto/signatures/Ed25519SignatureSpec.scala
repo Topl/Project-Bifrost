@@ -122,5 +122,4 @@ class Ed25519SignatureSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChec
     )
     sig.value.sameElements(specSig) shouldBe true
   }
-
 }

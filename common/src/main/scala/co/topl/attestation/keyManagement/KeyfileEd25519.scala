@@ -37,11 +37,11 @@ object KeyfileEd25519 {
     Map(
       "crypto" -> Map(
         "cipher"       -> "aes-256-ctr".asJson,
-        "cipherParams" -> Map("iv" -> Base58.encode(kf.iv).asJson).asJson,
-        "cipherText"   -> Base58.encode(kf.cipherText).asJson,
+        "cipherParams" -> Map("iv" -> kf.iv.encodeAsBase58).asJson,
+        "cipherText"   -> kf.cipherText.encodeAsBase58.asJson,
         "kdf"          -> "scrypt".asJson,
-        "kdfSalt"      -> Base58.encode(kf.salt).asJson,
-        "mac"          -> Base58.encode(kf.mac).asJson
+        "kdfSalt"      -> kf.salt.encodeAsBase58.asJson,
+        "mac"          -> kf.mac.encodeAsBase58.asJson
       ).asJson,
       "address" -> kf.address.asJson
     ).asJson

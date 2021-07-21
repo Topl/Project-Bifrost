@@ -1,8 +1,7 @@
-package co.topl.attestation.keyManagement
+package co.topl.attestation.keyManagement.mnemonicSeed
 
 import cats.implicits._
 import co.topl.attestation.keyManagement.mnemonicSeed.Mnemonic._
-import co.topl.attestation.keyManagement.mnemonicSeed.{English, Mnemonic}
 import co.topl.utils.CommonGenerators
 import co.topl.utils.IdiomaticScalaTransition.implicits._
 import co.topl.utils.encode.Base16
