@@ -152,10 +152,46 @@ class TransferTransactionSyntacticallyValidatable[T <: TokenValueHolder, P <: Pr
         tx.validNec
       case _: PolyTransfer[_] =>
         Validated.condNec(tx.from.nonEmpty, tx, NoInputBoxesSpecified)
-      case _: ArbitTransfer[_] | _: AssetTransfer[_] =>
+      case _: ArbitTransfer[_] =>
         Validated
           .condNec(tx.from.nonEmpty, tx, NoInputBoxesSpecified)
           .combine(Validated.condNec(tx.to.size >= 2, tx, NonPolyTxInsufficientOutputs))
+      case _: AssetTransfer[_] =>
+        Validated
+          .condNec(tx.from.nonEmpty, tx, NoInputBoxesSpecified)
+          .combine(Validated.condNec(tx.to.size >= 2, tx, NonPolyTxInsufficientOutputs))
+          .combine(
+            Validated.condNec(
+              tx.to.forall {
+                _._2 match {
+                  case assetValue: AssetValue =>
+                    assetValue.metadata.forall(_.getValidLatin1Bytes match {
+                      case Some(_) => true
+                      case None    => false
+                    })
+                  case _ => true
+                }
+              },
+              tx,
+              DataNotLatin1
+            )
+          )
+          .combine(
+            Validated.condNec(
+              tx.to.forall {
+                _._2 match {
+                  case assetValue: AssetValue =>
+                    assetValue.metadata.forall(_.getValidLatin1Bytes match {
+                      case Some(bytes) => bytes.length <= 127
+                      case None        => false
+                    })
+                  case _ => true
+                }
+              },
+              tx,
+              DataTooLong
+            )
+          )
     }
 
   private[transaction] def dataValidation(
@@ -165,7 +201,7 @@ class TransferTransactionSyntacticallyValidatable[T <: TokenValueHolder, P <: Pr
       Validated
         .fromOption(data.getValidLatin1Bytes, DataNotLatin1)
         .toValidatedNec[SyntacticValidationFailure, Array[Byte]]
-        .andThen(bytes => Validated.condNec(bytes.length <= 128, tx, DataTooLong))
+        .andThen(bytes => Validated.condNec(bytes.length <= 127, tx, DataTooLong))
     )
 
   private[transaction] def propositionSatisfiedValidation(
