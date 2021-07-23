@@ -6,7 +6,7 @@ import co.topl.utils.Logging
 import com.spotify.docker.client.DockerClient
 import com.spotify.docker.client.messages.{ContainerConfig, HostConfig, NetworkConfig, NetworkCreation}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class DockerSupport(dockerClient: DockerClient)(implicit system: ActorSystem) extends Logging {
 

@@ -15,7 +15,7 @@ class DebugRPCSpec extends AnyWordSpec with Matchers with RPCMockState {
            |   "id": "1",
            |   "method": "debug_delay",
            |   "params": [{
-           |      "blockId": "${view()._1.bestBlockId}",
+           |      "blockId": "${view().history.bestBlockId}",
            |      "numBlocks": 1
            |   }]
            |}

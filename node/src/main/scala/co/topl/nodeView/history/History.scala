@@ -6,9 +6,11 @@ import co.topl.modifier.NodeViewModifier.ModifierTypeId
 import co.topl.modifier.block.Block
 import co.topl.modifier.transaction.Transaction
 import co.topl.network.message.BifrostSyncInfo
+import co.topl.nodeView.{CacheLayerKeyValueStore, LSMKeyValueStore}
 import co.topl.nodeView.history.GenericHistory._
 import co.topl.nodeView.history.History.GenesisParentId
 import co.topl.settings.AppSettings
+import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 import co.topl.utils.{Logging, TimeProvider}
 import io.iohk.iodb.LSMStore
 
@@ -27,6 +29,7 @@ class History(
   fullBlockProcessor: BlockProcessor,
   validators:         Seq[BlockValidator[Block]]
 ) extends GenericHistory[Block, BifrostSyncInfo, History]
+    with AutoCloseable
     with Logging {
 
   override type NVCT = History
@@ -38,9 +41,9 @@ class History(
   lazy val difficulty: Long = storage.difficultyAt(bestBlockId)
 
   /** Public method to close storage */
-  def closeStorage(): Unit = {
+  override def close(): Unit = {
     log.info("Attempting to close history storage")
-    storage.storage.close()
+    storage.keyValueStore.close()
   }
 
   /** If there's no history, even genesis block */
@@ -117,7 +120,7 @@ class History(
 
               // check if we need to update storage after checking for forks
               if (forkProgInfo.branchPoint.nonEmpty) {
-                storage.rollback(forkProgInfo.branchPoint.get)
+                storage.rollback(forkProgInfo.branchPoint.get).getOrThrow()
 
                 forkProgInfo.toApply.foreach(b => storage.update(b, isBest = true))
               }
@@ -150,11 +153,11 @@ class History(
    */
   override def drop(modifierId: ModifierId): History = {
 
-    val block = storage.modifierById(modifierId).map { case b: Block => b }.get
+    val block = storage.modifierById(modifierId).get
     val parentBlock = storage.modifierById(block.parentId).get
 
     log.debug(s"Failed to apply block. Rollback BifrostState to ${parentBlock.id} from version ${block.id}")
-    storage.rollback(parentBlock.id)
+    storage.rollback(parentBlock.id).getOrThrow()
     new History(storage, fullBlockProcessor, validators)
   }
 
@@ -482,13 +485,29 @@ object History extends Logging {
   val GenesisParentId: ModifierId = ModifierId.genesisParentId
 
   def readOrGenerate(settings: AppSettings): History = {
+    val storage = {
 
-    /** Setup persistent on-disk storage */
-    val dataDir = settings.application.dataDir.ensuring(_.isDefined, "A data directory must be specified").get
-    val file = new File(s"$dataDir/blocks")
-    file.mkdirs()
-    val blockStorageDB = new LSMStore(file)
-    val storage = new Storage(blockStorageDB, settings.application.cacheExpire, settings.application.cacheSize)
+      /** Setup persistent on-disk storage */
+      val dataDir = settings.application.dataDir.ensuring(_.isDefined, "A data directory must be specified").get
+      val file = new File(s"$dataDir/blocks")
+      file.mkdirs()
+
+      import scala.concurrent.duration._
+      val blockStorageDB = new LSMStore(file)
+      new Storage(
+        new CacheLayerKeyValueStore(
+          new LSMKeyValueStore(blockStorageDB),
+          settings.application.cacheExpire.millis,
+          settings.application.cacheSize
+        ),
+        blockStorageDB.keySize
+      )
+    }
+
+    apply(settings, storage)
+  }
+
+  def apply(settings: AppSettings, storage: Storage): History = {
 
     /** This in-memory cache helps us to keep track of tines sprouting off the canonical chain */
     val blockProcessor = BlockProcessor(settings.network.maxChainCacheDepth)

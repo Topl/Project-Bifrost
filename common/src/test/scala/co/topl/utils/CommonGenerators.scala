@@ -378,6 +378,22 @@ trait CommonGenerators extends Logging with NetworkPrefixTestHelper {
     data        <- stringGen
   } yield PolyTransfer(from, to, attestation, fee, timestamp, Some(data), minting = false)
 
+  def signedPolyTransferGen(
+    from:    Gen[IndexedSeq[(Address, Nonce)]],
+    keyRing: KeyRing[PrivateKeyCurve25519, KeyfileCurve25519]
+  ): Gen[PolyTransfer[keyRing.PK]] = for {
+    from      <- from
+    to        <- toSeqGen
+    fee       <- positiveLongGen
+    timestamp <- positiveLongGen
+    data      <- stringGen
+  } yield {
+    val base =
+      PolyTransfer[PublicKeyPropositionCurve25519](from, to, Map.empty, fee, timestamp, Some(data), minting = false)
+
+    base.copy(attestation = keyRing.generateAttestation(from.map(_._1).toSet)(base.messageToSign))
+  }
+
   lazy val polyTransferEd25519Gen: Gen[PolyTransfer[PublicKeyPropositionEd25519]] = for {
     from        <- fromSeqEd25519Gen
     to          <- toSeqGen

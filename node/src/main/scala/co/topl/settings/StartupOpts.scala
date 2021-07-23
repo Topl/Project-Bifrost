@@ -57,7 +57,7 @@ final case class RuntimeOpts(
     appSettings
       // seed
       .focus(_.forging.privateTestnet)
-      .modify(_.map(_.focus(_.genesisSeed).replace(seed)))
+      .modify(_.map(_.focus(_.genesisSeed).modify(_.orElse(seed))))
       // forge
       .focus(_.forging.forgeOnStartup)
       .replace(appSettings.forging.forgeOnStartup || forgeOnStartup.value)

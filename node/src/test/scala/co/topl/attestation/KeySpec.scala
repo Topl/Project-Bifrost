@@ -1,14 +1,20 @@
 package co.topl.attestation
 
 import co.topl.attestation.AddressCodec.implicits._
-import co.topl.utils.NodeGenerators
 import co.topl.utils.StringDataTypes.Latin1Data
 import co.topl.utils.codecs.implicits._
+import co.topl.utils.{DiskKeyFileTestHelper, NodeGenerators}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatestplus.scalacheck.{ScalaCheckDrivenPropertyChecks, ScalaCheckPropertyChecks}
 
-class KeySpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with NodeGenerators with Matchers {
+class KeySpec
+    extends AnyPropSpec
+    with ScalaCheckPropertyChecks
+    with ScalaCheckDrivenPropertyChecks
+    with NodeGenerators
+    with Matchers
+    with DiskKeyFileTestHelper {
 
   var password: Latin1Data = _
   var messageByte: Array[Byte] = _

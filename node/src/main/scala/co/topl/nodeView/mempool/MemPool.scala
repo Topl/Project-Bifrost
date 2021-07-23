@@ -105,6 +105,6 @@ case class MemPool(private val unconfirmed: TrieMap[ModifierId, UnconfirmedTx[Tr
 }
 
 object MemPool {
-  lazy val emptyPool: MemPool = MemPool(TrieMap())
+  def empty(): MemPool = MemPool(TrieMap())
 
 }

@@ -1,15 +1,16 @@
 package co.topl.network
 
 import akka.actor._
+import akka.actor.typed.scaladsl.adapter._
+import akka.io.{IO, Tcp}
 import akka.testkit.TestKit
 import co.topl.network.message.MessageSerializer
-import co.topl.settings.{AppContext, StartupOpts}
-import co.topl.utils.NodeGenerators
+import co.topl.network.utils.NetworkTimeProvider
+import co.topl.utils.{NodeGenerators, TimeProvider}
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.propspec.AnyPropSpecLike
 
 import java.net.InetSocketAddress
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class PeerConnectionHandlerSpec
     extends TestKit(ActorSystem("PCHSpec"))
@@ -17,7 +18,7 @@ class PeerConnectionHandlerSpec
     with Matchers
     with NodeGenerators {
 
-  val appContext = new AppContext(settings, StartupOpts(), None)
+  implicit val timeProvider: TimeProvider = new NetworkTimeProvider(settings.ntp)(system.toTyped)
 
   property("MessageSerializer should initialize correctly with specified message codes") {
 
@@ -26,9 +27,9 @@ class PeerConnectionHandlerSpec
 
   property("A new PeerConnectionHandler should be created") {
 
-    val peerManagerRef: ActorRef = PeerManagerRef("peerManager", settings, appContext)
+    val peerManagerRef: ActorRef = system.actorOf(PeerManagerRef.props(settings, appContext))
     val networkControllerRef: ActorRef =
-      NetworkControllerRef("networkController", settings, peerManagerRef, appContext)
+      system.actorOf(NetworkControllerRef.props(settings, peerManagerRef, appContext, IO(Tcp)))
 
     val localPort = 9085
     val remotePort = 9086
@@ -36,6 +37,6 @@ class PeerConnectionHandlerSpec
 
     val connectionDescription = ConnectionDescription(networkControllerRef, connectionId, None, Seq())
 
-    PeerConnectionHandlerRef(networkControllerRef, settings, appContext, connectionDescription)
+    system.actorOf(PeerConnectionHandlerRef.props(networkControllerRef, settings, appContext, connectionDescription))
   }
 }

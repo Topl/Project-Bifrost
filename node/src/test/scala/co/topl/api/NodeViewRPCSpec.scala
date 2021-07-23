@@ -3,6 +3,8 @@ package co.topl.api
 import akka.util.ByteString
 import co.topl.modifier.block.Block
 import co.topl.modifier.transaction.Transaction.TX
+import co.topl.nodeView.TestableNodeViewHolder
+import co.topl.nodeView.history.History
 import io.circe.Json
 import io.circe.parser.parse
 import org.scalatest.matchers.should.Matchers
@@ -21,8 +23,18 @@ class NodeViewRPCSpec extends AnyWordSpec with Matchers with RPCMockState {
     txId = txs.head.id.toString
     block = blockCurve25519Gen.sample.get.copy(transactions = txs)
 
-    view()._1.storage.update(block, isBest = false)
-    view()._3.putWithoutCheck(txs, block.timestamp)
+    import akka.actor.typed.scaladsl.adapter._
+    TestableNodeViewHolder.setNodeView(
+      nodeViewHolderRef,
+      current =>
+        current.copy(history = current.history match {
+          case h: History =>
+            h.storage.update(block, isBest = true)
+            h
+        })
+    )(system.toTyped)
+
+    view().mempool.putWithoutCheck(txs, block.timestamp)
   }
 
   "NodeView RPC" should {
@@ -56,13 +68,13 @@ class NodeViewRPCSpec extends AnyWordSpec with Matchers with RPCMockState {
            |
           """.stripMargin)
 
-      view()._3.putWithoutCheck(Seq(txs.head), block.timestamp)
+      view().mempool.putWithoutCheck(Seq(txs.head), block.timestamp)
 
       httpPOST(requestBody) ~> route ~> check {
         val res: Json = parse(responseAs[String]) match { case Right(re) => re; case Left(ex) => throw ex }
         ((res \\ "result").head \\ "txId").head.asString.get shouldEqual txId
       }
-      view()._3.remove(txs.head)
+      view().mempool.remove(txs.head)
     }
 
     "Get a confirmed transaction by id" in {

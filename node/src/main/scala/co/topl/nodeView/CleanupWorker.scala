@@ -1,18 +1,17 @@
 package co.topl.nodeView
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.Actor
 import co.topl.attestation.Address
 import co.topl.modifier.ModifierId
 import co.topl.modifier.box.ProgramId
 import co.topl.modifier.transaction.Transaction
 import co.topl.nodeView.CleanupWorker.RunCleanup
 import co.topl.nodeView.MempoolAuditor.CleanupDone
-import co.topl.nodeView.NodeViewHolder.ReceivableMessages.EliminateTransactions
 import co.topl.nodeView.mempool.MemPoolReader
 import co.topl.nodeView.state.StateReader
-import co.topl.settings.{AppContext, AppSettings}
-import co.topl.utils.Logging
+import co.topl.settings.AppSettings
 import co.topl.utils.NetworkType.NetworkPrefix
+import co.topl.utils.{Logging, TimeProvider}
 
 import scala.collection.immutable.TreeSet
 
@@ -20,8 +19,12 @@ import scala.collection.immutable.TreeSet
  * Performs mempool validation task on demand.
  * Validation result is sent directly to `NodeViewHolder`.
  */
-class CleanupWorker(nodeViewHolderRef: ActorRef, settings: AppSettings, appContext: AppContext)(implicit
-  networkPrefix:                       NetworkPrefix
+class CleanupWorker(
+  nodeViewHolderRef: akka.actor.typed.ActorRef[NodeViewHolder.ReceivableMessage],
+  settings:          AppSettings
+)(implicit
+  networkPrefix: NetworkPrefix,
+  timeProvider:  TimeProvider
 ) extends Actor
     with Logging {
 
@@ -51,7 +54,7 @@ class CleanupWorker(nodeViewHolderRef: ActorRef, settings: AppSettings, appConte
     val (validated, toEliminate) = validatePool(state, mempool)
     if (toEliminate.nonEmpty) {
       log.info(s"${toEliminate.size} transactions from mempool were invalidated")
-      nodeViewHolderRef ! EliminateTransactions(toEliminate)
+      nodeViewHolderRef ! NodeViewHolder.ReceivableMessages.EliminateTransactions(toEliminate)
     }
     validated
   }
@@ -72,7 +75,7 @@ class CleanupWorker(nodeViewHolderRef: ActorRef, settings: AppSettings, appConte
           // if any newly created box matches a box already in the UTXO set, remove the transaction
           val boxAlreadyExists = utx.tx.newBoxes.exists(b => stateReader.getBox(b.id).isDefined)
           val txTimeout =
-            (appContext.timeProvider.time - utx.dateAdded) > settings.application.mempoolTimeout.toMillis
+            (timeProvider.time - utx.dateAdded) > settings.application.mempoolTimeout.toMillis
 
           if (boxAlreadyExists | txTimeout) (validAcc, utx.tx.id +: invalidAcc)
           else (utx.tx.id +: validAcc, invalidAcc)

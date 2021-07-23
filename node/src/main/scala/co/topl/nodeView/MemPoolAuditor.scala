@@ -6,11 +6,11 @@ import akka.actor.{
   ActorInitializationException,
   ActorKilledException,
   ActorRef,
-  ActorRefFactory,
   DeathPactException,
   OneForOneStrategy,
   Props
 }
+import akka.util.Timeout
 import co.topl.attestation.Address
 import co.topl.modifier.ModifierId
 import co.topl.modifier.block.{Block, BlockHeader}
@@ -18,35 +18,34 @@ import co.topl.modifier.box.ProgramId
 import co.topl.modifier.transaction.Transaction
 import co.topl.network.Broadcast
 import co.topl.network.NetworkController.ReceivableMessages.SendToNetwork
-import co.topl.network.NodeViewSynchronizer.ReceivableMessages.{
-  ChangedMempool,
-  ChangedState,
-  SemanticallySuccessfulModifier
-}
+
 import co.topl.network.message.{InvData, InvSpec, Message}
 import co.topl.nodeView.CleanupWorker.RunCleanup
 import co.topl.nodeView.MempoolAuditor.CleanupDone
-import co.topl.nodeView.NodeViewHolder.ReceivableMessages.GetNodeViewChanges
 import co.topl.nodeView.mempool.MemPoolReader
 import co.topl.nodeView.state.StateReader
-import co.topl.settings.{AppContext, AppSettings, NodeViewReady}
-import co.topl.utils.Logging
+import co.topl.settings.{AppContext, AppSettings}
 import co.topl.utils.NetworkType.NetworkPrefix
+import co.topl.utils.{Logging, TimeProvider}
 
+import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.reflect.ClassTag
 
 /**
  * Controls mempool cleanup workflow. Watches NodeView events and delegates
  * mempool cleanup task to [[CleanupWorker]] when needed.
  * Adapted from ErgoPlatform available at https://github.com/ergoplatform/ergo
  */
-class MempoolAuditor[
-  SR <: StateReader[ProgramId, Address]: ClassTag,
-  MR <: MemPoolReader[Transaction.TX]: ClassTag
-](nodeViewHolderRef: ActorRef, networkControllerRef: ActorRef, settings: AppSettings, appContext: AppContext)
+class MempoolAuditor(
+  nodeViewHolderRef:     akka.actor.typed.ActorRef[NodeViewHolder.ReceivableMessage],
+  networkControllerRef:  ActorRef,
+  settings:              AppSettings,
+  appContext:            AppContext
+)(implicit timeProvider: TimeProvider)
     extends Actor
     with Logging {
+
+  import context.dispatcher
 
   implicit val networkPrefix: NetworkPrefix = appContext.networkType.netPrefix
 
@@ -63,15 +62,16 @@ class MempoolAuditor[
         Restart
     }
 
-  private var stateReaderOpt: Option[SR] = None
-  private var poolReaderOpt: Option[MR] = None
-
   private val worker: ActorRef =
-    context.actorOf(Props(new CleanupWorker(nodeViewHolderRef, settings, appContext)))
+    context.actorOf(
+      Props(new CleanupWorker(nodeViewHolderRef, settings))
+    )
 
   override def preStart(): Unit = {
-    context.system.eventStream.subscribe(self, classOf[SemanticallySuccessfulModifier[_]])
-    context.system.eventStream.subscribe(self, classOf[NodeViewReady])
+    context.system.eventStream.subscribe(self, classOf[NodeViewHolder.Events.SemanticallySuccessfulModifier[_]])
+    context.system.eventStream.subscribe(self, classOf[NodeViewHolder.Events.ChangedState.type])
+    context.system.eventStream.subscribe(self, classOf[NodeViewHolder.Events.ChangedMempool.type])
+    log.info(s"${Console.YELLOW}MemPool Auditor transitioning to the operational state${Console.RESET}")
   }
 
   override def postRestart(reason: Throwable): Unit = {
@@ -88,31 +88,28 @@ class MempoolAuditor[
   ////////////////////////////// ACTOR MESSAGE HANDLING //////////////////////////////
 
   override def receive: Receive =
-    initialization orElse
-    nonsense
+    awaiting orElse nonsense
 
-  private def initialization: Receive = {
-    /** wait to start processing until the NodeViewHolder is ready * */
-    case NodeViewReady(_) =>
-      log.info(s"${Console.YELLOW}MemPool Auditor transitioning to the operational state${Console.RESET}")
-      context become awaiting
+  private def withNodeView[T](f: ReadableNodeView => T): Future[T] = {
+    import akka.actor.typed.scaladsl.AskPattern._
+    import akka.actor.typed.scaladsl.adapter._
+
+    import scala.concurrent.duration._
+    implicit val timeout: Timeout = Timeout(10.seconds)
+    implicit val typedSystem: akka.actor.typed.ActorSystem[_] = context.system.toTyped
+    nodeViewHolderRef.askWithStatus[T](NodeViewHolder.ReceivableMessages.Read(f, _))
   }
 
   private def awaiting: Receive = {
-    case SemanticallySuccessfulModifier(_: Block) | SemanticallySuccessfulModifier(_: BlockHeader) =>
-      stateReaderOpt = None
-      poolReaderOpt = None
-      nodeViewHolderRef ! GetNodeViewChanges(history = false, state = true, mempool = true)
+    case NodeViewHolder.Events.SemanticallySuccessfulModifier(_: Block) |
+        NodeViewHolder.Events.SemanticallySuccessfulModifier(_: BlockHeader) =>
+      withNodeView(view => initiateCleanup(view.state, view.memPool))
 
-    case ChangedMempool(mp: MR) =>
-      poolReaderOpt = Some(mp)
-      stateReaderOpt.foreach(st => initiateCleanup(st, mp))
+    case NodeViewHolder.Events.ChangedMempool =>
+      withNodeView(view => initiateCleanup(view.state, view.memPool))
 
-    case ChangedState(st: SR) =>
-      stateReaderOpt = Some(st)
-      poolReaderOpt.foreach(mp => initiateCleanup(st, mp))
-
-    case ChangedState(_) | ChangedMempool(_) => // do nothing
+    case NodeViewHolder.Events.ChangedState =>
+      withNodeView(view => initiateCleanup(view.state, view.memPool))
 
     case _ => nonsense
   }
@@ -121,8 +118,6 @@ class MempoolAuditor[
     case CleanupDone(ids) =>
       log.info("Cleanup done. Switching to awaiting mode")
       rebroadcastTransactions(ids)
-      stateReaderOpt = None
-      poolReaderOpt = None
       context become awaiting
 
     case _ => nonsense
@@ -135,7 +130,7 @@ class MempoolAuditor[
   ////////////////////////////////////////////////////////////////////////////////////
   //////////////////////////////// METHOD DEFINITIONS ////////////////////////////////
 
-  private def initiateCleanup(state: SR, mempool: MR): Unit = {
+  private def initiateCleanup(state: StateReader[ProgramId, Address], mempool: MemPoolReader[Transaction.TX]): Unit = {
     log.info("Initiating cleanup. Switching to working mode")
     worker ! RunCleanup(state, mempool)
     context become working // ignore other triggers until work is done
@@ -143,19 +138,19 @@ class MempoolAuditor[
 
   private def rebroadcastTransactions(ids: Seq[ModifierId]): Unit = {
     log.debug("Rebroadcasting transactions")
-    poolReaderOpt.foreach { pr =>
-      pr.getAll(ids).foreach { tx =>
-        log.info(s"Rebroadcasting $tx")
-        val msg = Message(
-          new InvSpec(settings.network.maxInvObjects),
-          Right(InvData(Transaction.modifierTypeId, Seq(tx.id))),
-          None
-        )
+    withNodeView(view => view.memPool.getAll(ids))
+      .foreach(transactions =>
+        transactions.foreach { tx =>
+          log.info(s"Rebroadcasting $tx")
+          val msg = Message(
+            new InvSpec(settings.network.maxInvObjects),
+            Right(InvData(Transaction.modifierTypeId, Seq(tx.id))),
+            None
+          )
 
-        networkControllerRef ! SendToNetwork(msg, Broadcast)
-      }
-
-    }
+          networkControllerRef ! SendToNetwork(msg, Broadcast)
+        }
+      )
   }
 }
 
@@ -175,24 +170,12 @@ object MempoolAuditor {
 
 object MempoolAuditorRef {
 
-  def props[
-    SR <: StateReader[ProgramId, Address]: ClassTag,
-    MR <: MemPoolReader[Transaction.TX]: ClassTag
-  ](settings: AppSettings, appContext: AppContext, nodeViewHolderRef: ActorRef, networkControllerRef: ActorRef): Props =
+  def props(
+    settings:              AppSettings,
+    appContext:            AppContext,
+    nodeViewHolderRef:     akka.actor.typed.ActorRef[NodeViewHolder.ReceivableMessage],
+    networkControllerRef:  ActorRef
+  )(implicit timeProvider: TimeProvider): Props =
     Props(new MempoolAuditor(nodeViewHolderRef, networkControllerRef, settings, appContext))
-
-  def apply[
-    SR <: StateReader[ProgramId, Address]: ClassTag,
-    MR <: MemPoolReader[Transaction.TX]: ClassTag
-  ](
-    name:                 String,
-    settings:             AppSettings,
-    appContext:           AppContext,
-    nodeViewHolderRef:    ActorRef,
-    networkControllerRef: ActorRef
-  )(implicit
-    context: ActorRefFactory
-  ): ActorRef =
-    context.actorOf(props(settings, appContext, nodeViewHolderRef, networkControllerRef), name)
 
 }

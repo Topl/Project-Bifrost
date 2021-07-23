@@ -144,11 +144,13 @@ object AppSettings extends Logging with SettingsReaders {
       ConfigFactory.parseFile(userFile)
     }
 
-    val networkConfigFile = args.networkTypeOpt.map(n => s"${n.verboseName}.conf").getOrElse("")
-    val networkConfig = ConfigFactory.load(this.getClass.getClassLoader, networkConfigFile)
-    networkConfigFile match {
-      case "" => log.info(s"${Console.YELLOW}No network specified, running as private testnet.${Console.RESET}")
-      case _  => log.info(s"${Console.YELLOW}Loading ${args.networkTypeOpt.get.verboseName} settings${Console.RESET}")
+    val networkConfig = args.networkTypeOpt match {
+      case Some(value) =>
+        log.info(s"${Console.YELLOW}Loading ${args.networkTypeOpt.get.verboseName} settings${Console.RESET}")
+        ConfigFactory.load(this.getClass.getClassLoader, value.verboseName + ".conf")
+      case None =>
+        log.info(s"${Console.YELLOW}No network specified, running as private testnet.${Console.RESET}")
+        ConfigFactory.empty()
     }
 
     // load config files from disk, if the above strings are empty then ConFigFactory will skip loading them

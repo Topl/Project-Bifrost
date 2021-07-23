@@ -34,13 +34,16 @@ object Dependencies {
   )
 
   val akka = Seq(
-    "com.typesafe.akka" %% "akka-actor"          % akkaVersion,
-    "com.typesafe.akka" %% "akka-stream"         % akkaVersion,
-    "com.typesafe.akka" %% "akka-http"           % akkaHttpVersion,
-    "com.typesafe.akka" %% "akka-http-core"      % akkaHttpVersion,
-    "com.typesafe.akka" %% "akka-slf4j"          % akkaVersion,
-    "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion     % Test,
-    "com.typesafe.akka" %% "akka-http-testkit"   % akkaHttpVersion % Test
+    "com.typesafe.akka" %% "akka-actor"               % akkaVersion,
+    "com.typesafe.akka" %% "akka-actor-typed"         % akkaVersion,
+    "com.typesafe.akka" %% "akka-stream"              % akkaVersion,
+    "com.typesafe.akka" %% "akka-http"                % akkaHttpVersion,
+    "com.typesafe.akka" %% "akka-http-core"           % akkaHttpVersion,
+    "com.typesafe.akka" %% "akka-slf4j"               % akkaVersion,
+    "com.typesafe.akka" %% "akka-testkit"             % akkaVersion     % Test,
+    "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion     % Test,
+    "com.typesafe.akka" %% "akka-stream-testkit"      % akkaVersion     % Test,
+    "com.typesafe.akka" %% "akka-http-testkit"        % akkaHttpVersion % Test
   )
 
   val network = Seq(
@@ -97,13 +100,13 @@ object Dependencies {
 
   lazy val common: Seq[ModuleID] = {
     Seq(
-      "com.typesafe.akka"      %% "akka-actor"              % akkaVersion,
       "org.typelevel"          %% "simulacrum"              % "1.0.0",
       "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.4"
     ) ++
     logging ++
     circe ++
-    test
+    test ++
+    akka
   }
 
   lazy val chainProgram: Seq[ModuleID] =
@@ -155,8 +158,8 @@ object Dependencies {
 
   lazy val crypto: Seq[ModuleID] =
     Seq(
-      "org.typelevel" %% "simulacrum" % "1.0.0",
-      "org.typelevel" %% "cats-core"  % "2.3.0",
+      "org.typelevel"     %% "simulacrum"      % "1.0.0",
+      "org.typelevel"     %% "cats-core"       % "2.3.0",
       "org.bouncycastle"   % "bcprov-jdk15on"  % "1.68",
       "org.whispersystems" % "curve25519-java" % "0.5.0"
     ) ++

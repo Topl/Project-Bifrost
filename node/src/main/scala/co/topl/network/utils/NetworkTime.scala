@@ -1,7 +1,8 @@
 package co.topl.network.utils
 
-import akka.actor.ActorSystem
-import akka.dispatch.Dispatchers
+import akka.Done
+import akka.actor.CoordinatedShutdown
+import akka.actor.typed.{ActorSystem, DispatcherSelector}
 import co.topl.utils.{Logging, TimeProvider}
 import org.apache.commons.net.ntp.NTPUDPClient
 
@@ -18,21 +19,26 @@ object NetworkTime {
 
 case class NetworkTimeProviderSettings(server: String, updateEvery: FiniteDuration, timeout: FiniteDuration)
 
-class NetworkTimeProvider(ntpSettings: NetworkTimeProviderSettings)(implicit system: ActorSystem)
+class NetworkTimeProvider(ntpSettings: NetworkTimeProviderSettings)(implicit system: ActorSystem[_])
     extends TimeProvider
     with Logging {
 
-  import system.dispatcher
+  import system.executionContext
 
   private val blockingExecutionContext: ExecutionContext =
-    system.dispatchers.lookup(Dispatchers.DefaultBlockingDispatcherId)
+    system.dispatchers.lookup(DispatcherSelector.fromConfig("bifrost.application.ntp.dispatcher"))
 
   private val lastUpdate = new AtomicLong(0)
   private[NetworkTimeProvider] val offset = new AtomicLong(0)
   private val client = new NTPUDPClient()
   client.setDefaultTimeout(ntpSettings.timeout.toMillis.toInt)
   client.open()
-  system.registerOnTermination(client.close())
+  CoordinatedShutdown(system).addTask(CoordinatedShutdown.PhaseServiceStop, "Shutdown-NTP")(() =>
+    Future.successful {
+      client.close()
+      Done
+    }
+  )
 
   /**
    * Check if the NTP offset should be updated and returns current time (milliseconds)

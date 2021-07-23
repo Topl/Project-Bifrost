@@ -421,6 +421,14 @@ class TransactionTest
 
     completedTransaction shouldEqual memPoolTx
 
+    logger.info(s"Verifying $name no longer in mempool")
+    node
+      .run(ToplRpc.NodeView.TransactionFromMempool.rpc)(
+        ToplRpc.NodeView.TransactionFromMempool.Params(broadcastedTx.id)
+      )
+      .left
+      .value
+
     logger.info(s"$name complete: $completedTransaction")
 
     completedTransaction

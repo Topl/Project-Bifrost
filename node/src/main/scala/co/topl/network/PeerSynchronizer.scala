@@ -7,11 +7,10 @@ import co.topl.network.NetworkController.ReceivableMessages.{PenalizePeer, Regis
 import co.topl.network.PeerManager.ReceivableMessages.{AddPeerIfEmpty, RecentlySeenPeers}
 import co.topl.network.message._
 import co.topl.network.peer.{ConnectedPeer, PeerInfo, PeerSpec, PenaltyType}
-import co.topl.settings.{AppContext, AppSettings, NodeViewReady}
+import co.topl.settings.{AppContext, AppSettings}
 import co.topl.utils.Logging
 import shapeless.syntax.typeable._
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -21,9 +20,10 @@ class PeerSynchronizer(
   peerManager:          ActorRef,
   settings:             AppSettings,
   appContext:           AppContext
-)(implicit ec:          ExecutionContext)
-    extends Synchronizer
+) extends Synchronizer
     with Logging {
+
+  import context.dispatcher
 
   implicit private val timeout: Timeout = Timeout(settings.network.syncTimeout.getOrElse(5 seconds))
 
@@ -43,7 +43,8 @@ class PeerSynchronizer(
     networkControllerRef ! RegisterMessageSpecs(appContext.peerSyncRemoteMessages.toSeq, self)
 
     /** register for application initialization message */
-    context.system.eventStream.subscribe(self, classOf[NodeViewReady])
+    log.info(s"${Console.YELLOW}PeerSynchronizer transitioning to the operational state${Console.RESET}")
+    scheduleGetPeers()
   }
 
   ////////////////////////////////////////////////////////////////////////////////////
@@ -51,18 +52,8 @@ class PeerSynchronizer(
 
   // ----------- CONTEXT ----------- //
   override def receive: Receive =
-    initialization orElse nonsense
-
-  private def operational: Receive =
     processDataFromPeer orElse
     nonsense
-
-  // ----------- MESSAGE PROCESSING FUNCTIONS ----------- //
-  private def initialization: Receive = { case NodeViewReady(_) =>
-    log.info(s"${Console.YELLOW}PeerSynchronizer transitioning to the operational state${Console.RESET}")
-    context become operational
-    scheduleGetPeers()
-  }
 
   ////////////////////////////////////////////////////////////////////////////////////
   //////////////////////////////// METHOD DEFINITIONS ////////////////////////////////
@@ -132,7 +123,7 @@ object PeerSynchronizerRef {
     peerManager:          ActorRef,
     settings:             AppSettings,
     appContext:           AppContext
-  )(implicit system:      ActorSystem, ec: ExecutionContext): ActorRef =
+  )(implicit system:      ActorSystem): ActorRef =
     system.actorOf(props(networkControllerRef, peerManager, settings, appContext), name)
 
   def props(
@@ -140,6 +131,6 @@ object PeerSynchronizerRef {
     peerManager:          ActorRef,
     settings:             AppSettings,
     appContext:           AppContext
-  )(implicit ec:          ExecutionContext): Props =
+  ): Props =
     Props(new PeerSynchronizer(networkControllerRef, peerManager, settings, appContext))
 }

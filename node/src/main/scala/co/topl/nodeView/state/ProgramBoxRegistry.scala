@@ -1,6 +1,7 @@
 package co.topl.nodeView.state
 
 import co.topl.modifier.box.{BoxId, ProgramBox, ProgramId}
+import co.topl.nodeView.{KeyValueStore, LSMKeyValueStore}
 import co.topl.nodeView.state.MinimalState.VersionTag
 import co.topl.settings.AppSettings
 import co.topl.utils.Logging
@@ -14,7 +15,8 @@ import scala.util.{Failure, Success, Try}
  *
  * @param storage Persistent storage object for saving the ProgramBoxRegistry to disk
  */
-class ProgramBoxRegistry(protected val storage: LSMStore) extends Registry[ProgramBoxRegistry.K, ProgramBoxRegistry.V] {
+class ProgramBoxRegistry(protected val storage: KeyValueStore)
+    extends Registry[ProgramBoxRegistry.K, ProgramBoxRegistry.V] {
 
   import ProgramBoxRegistry.{K, V}
 
@@ -82,7 +84,7 @@ class ProgramBoxRegistry(protected val storage: LSMStore) extends Registry[Progr
     }
 
   override def rollbackTo(version: VersionTag): Try[ProgramBoxRegistry] = Try {
-    if (storage.lastVersionID.exists(_.data sameElements version.bytes)) {
+    if (storage.latestVersion().exists(_.data sameElements version.bytes)) {
       this
     } else {
       log.debug(s"Rolling back ProgramBoxRegistry to: ${version.toString}")
@@ -105,7 +107,7 @@ object ProgramBoxRegistry extends Logging {
 
       val file = new File(s"$dataDir/programBoxRegistry")
       file.mkdirs()
-      val storage = new LSMStore(file, keySize = ProgramId.size)
+      val storage = new LSMKeyValueStore(new LSMStore(file, keySize = ProgramId.size))
 
       Some(new ProgramBoxRegistry(storage))
 

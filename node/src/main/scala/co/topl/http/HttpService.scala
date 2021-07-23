@@ -1,6 +1,5 @@
 package co.topl.http
 
-import akka.actor.ActorSystem
 import akka.http.scaladsl.marshalling.Marshaller._
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
 import akka.http.scaladsl.server.Route
@@ -10,10 +9,9 @@ import co.topl.settings.RPCApiSettings
 import co.topl.utils.StringDataTypes.Base58Data
 
 final case class HttpService(
-  settings:            RPCApiSettings,
-  bifrostRpcServer:    ToplRpcServer
-)(implicit val system: ActorSystem)
-    extends CorsSupport {
+  settings:         RPCApiSettings,
+  bifrostRpcServer: ToplRpcServer
+) extends CorsSupport {
 
   private val apiKeyHash: Option[Array[Byte]] = Base58Data.validated(settings.apiKeyHash).map(_.value).toOption
 

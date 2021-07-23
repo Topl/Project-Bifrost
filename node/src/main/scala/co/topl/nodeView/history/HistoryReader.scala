@@ -14,11 +14,11 @@ trait HistoryReader[PM <: PersistentNodeViewModifier, SI <: SyncInfo]
     extends NodeViewComponent
     with ContainsModifiers[PM] {
 
-  val height: Long
-  val bestBlock: PM
-  val difficulty: Long
-  val bestBlockId: ModifierId
-  val score: Long
+  def height: Long
+  def bestBlock: PM
+  def difficulty: Long
+  def bestBlockId: ModifierId
+  def score: Long
 
   /**
    * Is there's no history, even genesis block

@@ -15,10 +15,10 @@ package object consensus {
   private var _protocolMngr: ProtocolVersioner = ProtocolVersioner.empty
 
   // Initialize or restore a consensus storage that keeps track of the maxStake, difficulty, height, and inflation
-  private[consensus] var consensusStorage: ConsensusStorage = ConsensusStorage.emptyStorage()
+  private[topl] var consensusStorage: ConsensusStorage = ConsensusStorage.emptyStorage()
 
   // setter
-  private[consensus] def protocolMngr_=(value: ProtocolVersioner): Unit = _protocolMngr = value
+  private[topl] def protocolMngr_=(value: ProtocolVersioner): Unit = _protocolMngr = value
 
   // getters
   def protocolMngr: ProtocolVersioner = _protocolMngr

@@ -1,106 +1,81 @@
 package co.topl.rpc.handlers
 
+import akka.actor.typed.ActorSystem
 import cats.data.EitherT
 import cats.implicits._
 import co.topl.akkahttprpc.{CustomError, InvalidParametersError, RpcError, ThrowableData}
 import co.topl.attestation.Address
 import co.topl.modifier.box._
-import co.topl.nodeView.state.State
-import co.topl.nodeView.{
-  GetHistoryFailureException,
-  GetMempoolFailureException,
-  GetStateFailureException,
-  NodeViewHolderInterface
-}
+import co.topl.nodeView.state.StateReader
+import co.topl.nodeView.{NodeViewHolderInterface, ReadableNodeView}
 import co.topl.rpc.ToplRpc
 import co.topl.settings.AppContext
 import co.topl.utils.Int128
 import co.topl.utils.NetworkType.NetworkPrefix
 import io.circe.Encoder
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.language.existentials
 
 class NodeViewRpcHandlerImpls(
   appContext:              AppContext,
   nodeViewHolderInterface: NodeViewHolderInterface
 )(implicit
-  ec:               ExecutionContext,
+  system:           ActorSystem[_],
   throwableEncoder: Encoder[ThrowableData],
   networkPrefix:    NetworkPrefix
 ) extends ToplRpcHandlers.NodeView {
 
+  import system.executionContext
+
   override val head: ToplRpc.NodeView.Head.rpc.ServerHandler =
     _ =>
-      for {
-        history <- currentHistory()
-      } yield ToplRpc.NodeView.Head.Response(
-        history.height,
-        history.score,
-        history.bestBlockId,
-        history.bestBlock
+      withNodeView(view =>
+        ToplRpc.NodeView.Head.Response(
+          view.history.height,
+          view.history.score,
+          view.history.bestBlockId,
+          view.history.bestBlock
+        )
       )
 
   override val balances: ToplRpc.NodeView.Balances.rpc.ServerHandler =
     params =>
-      for {
-        state     <- currentState()
-        addresses <- checkAddresses(params.addresses, state).toEitherT[Future]
-      } yield balancesResponse(state, addresses)
+      withNodeView(view =>
+        checkAddresses(params.addresses, view.state)
+          .map(balancesResponse(view.state, _))
+      ).subflatMap(identity)
 
   override val transactionById: ToplRpc.NodeView.TransactionById.rpc.ServerHandler =
     params =>
-      for {
-        history <- currentHistory()
-        tResult <- history
-          .transactionById(params.transactionId)
-          .toRight[RpcError](
-            InvalidParametersError.adhoc("Unable to find confirmed transaction", "modifierId")
-          )
-          .toEitherT[Future]
-        (tx, blockId, blockNumber) = tResult
-      } yield ToplRpc.NodeView.TransactionById.Response(tx, blockNumber, blockId)
+      withNodeView(_.history.transactionById(params.transactionId))
+        .subflatMap(
+          _.toRight[RpcError](InvalidParametersError.adhoc("Unable to find confirmed transaction", "modifierId"))
+        )
+        .map { case (tx, blockId, blockNumber) => ToplRpc.NodeView.TransactionById.Response(tx, blockNumber, blockId) }
 
   override val blockById: ToplRpc.NodeView.BlockById.rpc.ServerHandler =
     params =>
-      for {
-        history <- currentHistory()
-        block <- history
-          .modifierById(params.blockId)
-          .toRight[RpcError](
-            InvalidParametersError.adhoc("The requested block could not be found", "blockId")
-          )
-          .toEitherT[Future]
-      } yield block
+      withNodeView(_.history.modifierById(params.blockId))
+        .subflatMap(
+          _.toRight[RpcError](InvalidParametersError.adhoc("The requested block could not be found", "blockId"))
+        )
 
   override val blockByHeight: ToplRpc.NodeView.BlockByHeight.rpc.ServerHandler =
     params =>
-      for {
-        history <- currentHistory()
-        block <- history
-          .modifierByHeight(params.height)
-          .toRight[RpcError](
-            InvalidParametersError.adhoc("The requested block could not be found", "height")
-          )
-          .toEitherT[Future]
-      } yield block
+      withNodeView(_.history.modifierByHeight(params.height))
+        .subflatMap(
+          _.toRight[RpcError](InvalidParametersError.adhoc("The requested block could not be found", "height"))
+        )
 
   override val mempool: ToplRpc.NodeView.Mempool.rpc.ServerHandler =
-    _ =>
-      for {
-        pool <- currentMempool()
-        transactions = pool.take(100)(-_.dateAdded).map(_.tx).toList
-      } yield transactions
+    _ => withNodeView(_.memPool.take(100)(-_.dateAdded).map(_.tx).toList)
 
   override val transactionFromMempool: ToplRpc.NodeView.TransactionFromMempool.rpc.ServerHandler =
     params =>
-      for {
-        pool <- currentMempool()
-        tx <- pool
-          .modifierById(params.transactionId)
-          .toRight[RpcError](InvalidParametersError.adhoc("Unable to retrieve transaction", "transactionId"))
-          .toEitherT[Future]
-      } yield tx
+      withNodeView(_.memPool.modifierById(params.transactionId))
+        .subflatMap(
+          _.toRight[RpcError](InvalidParametersError.adhoc("Unable to retrieve transaction", "transactionId"))
+        )
 
   override val info: ToplRpc.NodeView.Info.rpc.ServerHandler =
     _ =>
@@ -112,7 +87,10 @@ class NodeViewRpcHandlerImpls(
         )
       )
 
-  private def balancesResponse(state: State, addresses: List[Address]): ToplRpc.NodeView.Balances.Response = {
+  private def balancesResponse(
+    state:     StateReader[_, Address],
+    addresses: List[Address]
+  ): ToplRpc.NodeView.Balances.Response = {
     val boxes =
       addresses.map { k =>
         val orderedBoxes = state.getTokenBoxes(k) match {
@@ -144,18 +122,10 @@ class NodeViewRpcHandlerImpls(
     }
   }
 
-  private def currentHistory() =
-    nodeViewHolderInterface.getHistory().leftMap { case GetHistoryFailureException(throwable) =>
-      CustomError.fromThrowable(throwable): RpcError
-    }
-
-  private def currentState() =
-    nodeViewHolderInterface.getState().leftMap { case GetStateFailureException(throwable) =>
-      CustomError.fromThrowable(throwable): RpcError
-    }
-
-  private def currentMempool() =
-    nodeViewHolderInterface.getMempool().leftMap { case GetMempoolFailureException(throwable) =>
-      CustomError.fromThrowable(throwable): RpcError
-    }
+  private def withNodeView[T](f: ReadableNodeView => T) =
+    nodeViewHolderInterface
+      .withNodeView(f)
+      .leftMap { case NodeViewHolderInterface.ReadFailure(throwable) =>
+        CustomError.fromThrowable(throwable): RpcError
+      }
 }

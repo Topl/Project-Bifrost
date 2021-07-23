@@ -12,6 +12,7 @@ import simulacrum._
 
 import scala.collection.compat.immutable.LazyList
 import scala.language.implicitConversions
+import scala.util.{Failure, Success, Try}
 
 @typeclass trait SemanticallyValidatable[T] {
 
@@ -111,18 +112,21 @@ class TransferTransactionSemanticallyValidatable[T <: TokenValueHolder, P <: Pro
     import tx._
     // compute transaction values used for validation
     val txOutput: Int128 = tx.newBoxes.map(_.value.quantity).sum
-    val unlockers = BoxUnlocker.generate(tx.from, tx.attestation)
+    (Try(BoxUnlocker.generate(tx.from, tx.attestation)) match {
+      case Failure(_)     => BoxNotFound.invalidNec
+      case Success(value) => value.validNec[SemanticValidationFailure]
+    }).andThen { unlockers =>
+      val inputBoxes: List[(BoxUnlocker[P, Proof[P]], Option[Box[_]])] =
+        unlockers.map(u => u -> boxReader.getBox(u.closedBoxId)).toList
 
-    val inputBoxes: List[(BoxUnlocker[P, Proof[P]], Option[Box[_]])] =
-      unlockers.map(u => u -> boxReader.getBox(u.closedBoxId)).toList
+      val sumOfPolyInputs: Int128 = inputBoxes.collect { case (_, Some(PolyBox(_, _, value))) =>
+        value.quantity
+      }.sum
 
-    val sumOfPolyInputs: Int128 = inputBoxes.collect { case (_, Some(PolyBox(_, _, value))) =>
-      value.quantity
-    }.sum
-
-    syntacticSemanticValidation(tx)
-      .andThen(txSpecificValidation(_)(txOutput, sumOfPolyInputs))
-      .andThen(accessibleFundsValidation(_)(inputBoxes, txOutput, sumOfPolyInputs))
+      syntacticSemanticValidation(tx)
+        .andThen(txSpecificValidation(_)(txOutput, sumOfPolyInputs))
+        .andThen(accessibleFundsValidation(_)(inputBoxes, txOutput, sumOfPolyInputs))
+    }
   }
 
   private[transaction] def syntacticSemanticValidation(tx: TransferTransaction[T, P])(implicit

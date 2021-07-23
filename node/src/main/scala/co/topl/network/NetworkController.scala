@@ -2,7 +2,7 @@ package co.topl.network
 
 import akka.actor.SupervisorStrategy._
 import akka.actor._
-import akka.io.{IO, Tcp}
+import akka.io.Tcp
 import akka.pattern.ask
 import akka.util.Timeout
 import co.topl.network.NodeViewSynchronizer.ReceivableMessages.{DisconnectedPeer, HandshakedPeer}
@@ -10,12 +10,11 @@ import co.topl.network.PeerConnectionHandler.ReceivableMessages.CloseConnection
 import co.topl.network.PeerManager.ReceivableMessages._
 import co.topl.network.message.Message
 import co.topl.network.peer.{ConnectedPeer, PeerInfo, PenaltyType, _}
-import co.topl.settings.{AppContext, AppSettings, NodeViewReady, Version}
+import co.topl.settings.{AppContext, AppSettings, Version}
 import co.topl.utils.TimeProvider.Time
 import co.topl.utils.{Logging, NetworkUtils, TimeProvider}
 
 import java.net._
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
@@ -27,13 +26,15 @@ import scala.util.{Failure, Success, Try}
  * @param tcpManager a reference to the manager actor for the Tcp IO extension
  */
 class NetworkController(
-  settings:       AppSettings,
-  peerManagerRef: ActorRef,
-  appContext:     AppContext,
-  tcpManager:     ActorRef
-)(implicit ec:    ExecutionContext)
+  settings:              AppSettings,
+  peerManagerRef:        ActorRef,
+  appContext:            AppContext,
+  tcpManager:            ActorRef
+)(implicit timeProvider: TimeProvider)
     extends Actor
     with Logging {
+
+  import context.dispatcher
 
   /** Import the types of messages this actor can RECEIVE */
   import NetworkController.ReceivableMessages._
@@ -65,32 +66,31 @@ class NetworkController(
   /** records the time of the most recent incoming message (for checking connectivity) */
   private var lastIncomingMessageTime: TimeProvider.Time = _
 
-  override def preStart(): Unit = {
+  override def preStart(): Unit =
     log.info(s"Declared address: ${appContext.externalNodeAddress}")
-
-    /** register for application initialization message */
-    context.system.eventStream.subscribe(self, classOf[NodeViewReady])
-  }
 
   ////////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////// ACTOR MESSAGE HANDLING //////////////////////////////
 
   // ----------- CONTEXT ----------- //
   override def receive: Receive =
-    initialization(p2pBound = false, nodeViewReady = false) orElse
-    nonsense
+    initialization
 
   private def operational: Receive =
     businessLogic orElse
     peerCommands orElse
     connectionEvents orElse
+    // TODO: Is it okay to do this in the "operational" state?
+    registerMessageSpecs orElse
     nonsense
 
   // ----------- MESSAGE PROCESSING FUNCTIONS ----------- //
-  private def initialization(p2pBound: Boolean, nodeViewReady: Boolean): Receive = {
-    case BindP2P =>
-      /** check own declared address for validity */
-      val addrValidationResult = if (validateDeclaredAddress()) {
+  private def initialization: Receive = bindP2P orElse registerMessageSpecs orElse nonsense
+
+  private def bindP2P: Receive = { case BindP2P =>
+    /** check own declared address for validity */
+    val addrValidationResult =
+      if (validateDeclaredAddress()) {
 
         /**
          * send a bind signal to the TCP manager to designate this actor as the
@@ -101,23 +101,19 @@ class NetworkController(
         throw new Error("Address validation failed. Aborting application startup.")
       }
 
-      sender() ! addrValidationResult
-      if (nodeViewReady) becomeOperational()
-      else context.become(initialization(p2pBound = true, nodeViewReady))
+    sender() ! addrValidationResult
+    becomeOperational()
+  }
 
-    case RegisterMessageSpecs(specs, handler) =>
-      log.info(
-        s"${Console.YELLOW}Registered ${sender()} as the handler for " +
-        s"${specs.map(s => s.messageCode -> s.messageName)}${Console.RESET}"
-      )
+  private def registerMessageSpecs: Receive = { case RegisterMessageSpecs(specs, handler) =>
+    log.info(
+      s"${Console.YELLOW}Registered ${sender()} as the handler for " +
+      s"${specs.map(s => s.messageCode -> s.messageName)}${Console.RESET}"
+    )
 
-      /** add the message code and its corresponding handler actorRef to the map */
-      messageHandlers ++= specs.map(_.messageCode -> handler)
+    /** add the message code and its corresponding handler actorRef to the map */
+    messageHandlers ++= specs.map(_.messageCode -> handler)
 
-    /** start attempting to connect to peers when NodeViewHolder is ready */
-    case NodeViewReady(_) =>
-      if (p2pBound) becomeOperational()
-      else context.become(initialization(p2pBound, nodeViewReady = true))
   }
 
   private def becomeOperational(): Unit = {
@@ -240,7 +236,7 @@ class NetworkController(
   ////////////////////////////////////////////////////////////////////////////////////
   //////////////////////////////// METHOD DEFINITIONS ////////////////////////////////
 
-  def networkTime(): Time = appContext.timeProvider.time
+  def networkTime(): Time = timeProvider.time
 
   /** Schedule a periodic connection to a random known peer */
   private def scheduleConnectionToPeer(): Unit =
@@ -338,7 +334,8 @@ class NetworkController(
 
     val connectionDescription = ConnectionDescription(connection, connectionId, selfAddressOpt, peerFeatures)
 
-    val handler: ActorRef = PeerConnectionHandlerRef(self, settings, appContext, connectionDescription)
+    val handler: ActorRef =
+      context.actorOf(PeerConnectionHandlerRef.props(self, settings, appContext, connectionDescription))
 
     context.watch(handler)
 
@@ -604,18 +601,10 @@ object NetworkController {
 object NetworkControllerRef {
 
   def props(
-    settings:       AppSettings,
-    peerManagerRef: ActorRef,
-    appContext:     AppContext,
-    tcpManager:     ActorRef
-  )(implicit ec:    ExecutionContext): Props =
+    settings:              AppSettings,
+    peerManagerRef:        ActorRef,
+    appContext:            AppContext,
+    tcpManager:            ActorRef
+  )(implicit timeProvider: TimeProvider): Props =
     Props(new NetworkController(settings, peerManagerRef, appContext, tcpManager))
-
-  def apply(
-    name:            String,
-    settings:        AppSettings,
-    peerManagerRef:  ActorRef,
-    appContext:      AppContext
-  )(implicit system: ActorSystem, ec: ExecutionContext): ActorRef =
-    system.actorOf(props(settings, peerManagerRef, appContext, IO(Tcp)), name)
 }

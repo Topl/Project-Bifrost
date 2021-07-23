@@ -31,25 +31,28 @@ object LeaderElection extends Logging {
     if (addresses.isEmpty) {
       Left(NoAddressesAvailable)
     } else {
-      val arbitBoxes = addresses.flatMap {
-        stateReader
-          .getTokenBoxes(_)
-          .getOrElse(Seq())
-          .collect { case box: ArbitBox => box }
-      }.toSeq
-
-      (arbitBoxes match {
-        case Seq() => Left(NoArbitBoxesAvailable)
-        case seq   => Right(seq)
-      }).flatMap { boxes =>
-        boxes
-          .map(box => (box, calcHit(parent)(box)))
-          .filter { case (box, hit) =>
-            hit < calcTarget(box.value.quantity, timestamp - parent.timestamp, parent.difficulty, parent.height)
+      // This is ugly iterable/procedural code, but the goal is lazy traversal to avoid fetching all boxes for
+      // all addresses when we're only looking for the _first_ valid candidate
+      val arbitBoxesIterator =
+        addresses.iterator
+          .flatMap {
+            stateReader
+              .getTokenBoxes(_)
+              .getOrElse(Nil)
           }
-          .map(_._1)
-          .headOption
-          .toRight(NoBoxesEligible)
+          .collect { case box: ArbitBox => box }
+
+      if (arbitBoxesIterator.hasNext) {
+        while (arbitBoxesIterator.hasNext) {
+          val box = arbitBoxesIterator.next()
+          val hit = calcHit(parent)(box)
+          val calculatedTarget =
+            calcTarget(box.value.quantity, timestamp - parent.timestamp, parent.difficulty, parent.height)
+          if (hit < calculatedTarget) return Right(box)
+        }
+        Left(NoBoxesEligible)
+      } else {
+        Left(NoArbitBoxesAvailable)
       }
     }
 

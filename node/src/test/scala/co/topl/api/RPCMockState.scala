@@ -1,31 +1,42 @@
 package co.topl.api
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.ActorSystem
+import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{HttpEntity, HttpMethods, HttpRequest, MediaTypes}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
+import akka.pattern.ask
 import akka.testkit.TestActorRef
 import akka.util.{ByteString, Timeout}
 import co.topl.akkahttprpc.ThrowableSupport.Standard._
+import co.topl.consensus.KeyManager.{KeyView, StartupKeyView}
 import co.topl.consensus._
 import co.topl.http.HttpService
 import co.topl.modifier.block.Block
 import co.topl.network.message.BifrostSyncInfo
-import co.topl.nodeView.ActorNodeViewHolderInterface
+import co.topl.network.utils.NetworkTimeProvider
 import co.topl.nodeView.history.History
 import co.topl.nodeView.mempool.MemPool
-import co.topl.nodeView.nodeViewHolder.TestableNodeViewHolder
 import co.topl.nodeView.state.State
+import co.topl.nodeView.{ActorNodeViewHolderInterface, NodeView, NodeViewHolder, TestableNodeViewHolder}
 import co.topl.rpc.ToplRpcServer
-import co.topl.settings.{AppContext, StartupOpts}
-import co.topl.utils.NodeGenerators
+import co.topl.utils.{DiskKeyFileTestHelper, NodeGenerators, TimeProvider}
 import org.scalatest.BeforeAndAfterAll
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.util.Try
 
-trait RPCMockState extends AnyWordSpec with NodeGenerators with ScalatestRouteTest with BeforeAndAfterAll {
+trait RPCMockState
+    extends AnyWordSpec
+    with NodeGenerators
+    with ScalatestRouteTest
+    with BeforeAndAfterAll
+    with DiskKeyFileTestHelper
+    with ScalaFutures {
 
   type BSI = BifrostSyncInfo
   type PMOD = Block
@@ -40,20 +51,18 @@ trait RPCMockState extends AnyWordSpec with NodeGenerators with ScalatestRouteTe
   //TODO Fails when using rpcSettings
   override def createActorSystem(): ActorSystem = ActorSystem(settings.network.agentName)
 
-  protected var appContext: AppContext = _
-
   // Create Bifrost singleton actors
 
   // NOTE: Some of these actors are TestActors in order to access the underlying instance so that we can manipulate
   //       the state of the underlying instance while testing. Use with caution
   protected var keyManagerRef: TestActorRef[KeyManager] = _
-  protected var forgerRef: ActorRef = _
+  protected var forgerRef: akka.actor.typed.ActorRef[Forger.ReceivableMessage] = _
 
-  protected var nodeViewHolderRef: TestActorRef[TestableNodeViewHolder] = _
+  protected var nodeViewHolderRef: akka.actor.typed.ActorRef[NodeViewHolder.ReceivableMessage] = _
 
-  // Get underlying references
-  protected var nvh: TestableNodeViewHolder = _
   protected var km: KeyManager = _
+
+  implicit protected var timeProvider: TimeProvider = _
 
   var rpcServer: ToplRpcServer = _
 
@@ -62,27 +71,58 @@ trait RPCMockState extends AnyWordSpec with NodeGenerators with ScalatestRouteTe
   override def beforeAll(): Unit = {
     super.beforeAll()
 
-    appContext = new AppContext(settings, StartupOpts(), None)
+    timeProvider = new NetworkTimeProvider(settings.ntp)(system.toTyped)
 
     keyManagerRef = TestActorRef(
-      new KeyManager(settings, appContext)(system.getDispatcher, appContext.networkType.netPrefix)
+      new KeyManager(settings, appContext)(appContext.networkType.netPrefix)
     )
-    forgerRef = ForgerRef[HIS, ST, MP](Forger.actorName, settings, appContext, keyManagerRef)
 
-    nodeViewHolderRef = TestActorRef(
-      new TestableNodeViewHolder(settings, appContext)(system.getDispatcher, appContext.networkType.netPrefix)
+    nodeViewHolderRef = system.toTyped.systemActorOf(
+      NodeViewHolder(
+        settings,
+        () =>
+          NodeView.persistent(
+            settings,
+            appContext.networkType,
+            () =>
+              (keyManagerRef ? KeyManager.ReceivableMessages.GenerateInitialAddresses)
+                .mapTo[Try[StartupKeyView]]
+                .flatMap(Future.fromTry)
+          )
+      ),
+      NodeViewHolder.ActorName
     )
-    nvh = nodeViewHolderRef.underlyingActor
+
+    forgerRef = system.toTyped.systemActorOf(
+      Forger.behavior(
+        settings.forging.blockGenerationDelay,
+        settings.forging.minTransactionFee,
+        settings.forging.forgeOnStartup,
+        () => (keyManagerRef ? KeyManager.ReceivableMessages.GetKeyView).mapTo[KeyView],
+        () =>
+          (keyManagerRef ? KeyManager.ReceivableMessages.GenerateInitialAddresses)
+            .mapTo[Try[StartupKeyView]]
+            .flatMap(Future.fromTry),
+        new ActorNodeViewHolderInterface(nodeViewHolderRef)(system.toTyped, implicitly[Timeout])
+      ),
+      Forger.ActorName
+    )
+
     km = keyManagerRef.underlyingActor
 
     // manipulate the underlying actor state
-    nvh.updateNodeViewPublicAccessor(updatedState = Some(genesisState))
+    TestableNodeViewHolder.setNodeView(
+      nodeViewHolderRef,
+      _.copy(state = genesisState)
+    )(system.toTyped)
     km.context.become(km.receive(keyRingCurve25519, Some(keyRingCurve25519.addresses.head)))
 
     rpcServer = {
+      implicit val typedSystem: akka.actor.typed.ActorSystem[_] = system.toTyped
       val forgerInterface = new ActorForgerInterface(forgerRef)
       val keyManagerInterface = new ActorKeyManagerInterface(keyManagerRef)
-      val nodeViewHolderInterface = new ActorNodeViewHolderInterface(nodeViewHolderRef)
+      val nodeViewHolderInterface =
+        new ActorNodeViewHolderInterface(nodeViewHolderRef)
       import co.topl.rpc.handlers._
       new ToplRpcServer(
         ToplRpcHandlers(
@@ -106,6 +146,6 @@ trait RPCMockState extends AnyWordSpec with NodeGenerators with ScalatestRouteTe
       entity = HttpEntity(MediaTypes.`application/json`, jsonRequest)
     ).withHeaders(RawHeader("x-api-key", "test_key"))
 
-  // this method returns modifiable instances of the node view components
-  protected def view(): (History, State, MemPool) = nvh.nodeViewPublicAccessor
+  protected def view(): NodeView =
+    TestableNodeViewHolder.nodeViewOf(nodeViewHolderRef)(system.toTyped)
 }

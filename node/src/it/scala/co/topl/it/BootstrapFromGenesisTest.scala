@@ -98,6 +98,7 @@ class BootstrapFromGenesisTest
 
     logger.info("Stopping forging on both nodes")
 
+    oldNode.run(ToplRpc.Admin.StopForging.rpc)(ToplRpc.Admin.StopForging.Params()).value
     newNode.run(ToplRpc.Admin.StopForging.rpc)(ToplRpc.Admin.StopForging.Params()).value
 
     logger.info(s"Waiting $syncWindow for the nodes to sync")

@@ -11,7 +11,7 @@
     <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
         <appender-ref ref="STDOUT" />
     </appender>
-
+    <logger name="akka" level="INFO" />
     <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>

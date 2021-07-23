@@ -264,7 +264,7 @@ lazy val toplRpc = project
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := "co.topl.buildinfo.toplrpc"
   )
-  .dependsOn(akkaHttpRpc, common)
+  .dependsOn(akkaHttpRpc, common, crypto)
 
 lazy val gjallarhorn = project
   .in(file("gjallarhorn"))

@@ -1,6 +1,6 @@
 package co.topl.network
 
-import akka.actor.{Actor, ActorRef, ActorSystem, Cancellable, Props, SupervisorStrategy}
+import akka.actor.{Actor, ActorRef, Cancellable, Props, SupervisorStrategy}
 import akka.io.Tcp
 import akka.util.{ByteString, CompactByteString}
 import co.topl.network.NetworkController.ReceivableMessages.{Handshaked, PenalizePeer}
@@ -9,12 +9,11 @@ import co.topl.network.message.{Handshake, HandshakeSpec, Message, MessageSerial
 import co.topl.network.peer.PenaltyType.PermanentPenalty
 import co.topl.network.peer._
 import co.topl.settings.{AppContext, AppSettings}
-import co.topl.utils.Logging
 import co.topl.utils.serialization.BifrostSerializer
+import co.topl.utils.{Logging, TimeProvider}
 
 import scala.annotation.tailrec
 import scala.collection.immutable.TreeMap
-import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 class PeerConnectionHandler(
@@ -22,9 +21,11 @@ class PeerConnectionHandler(
   settings:              AppSettings,
   appContext:            AppContext,
   connectionDescription: ConnectionDescription
-)(implicit ec:           ExecutionContext)
+)(implicit timeProvider: TimeProvider)
     extends Actor
     with Logging {
+
+  import context.dispatcher
 
   private val connection = connectionDescription.connection
   private val connectionId = connectionDescription.connectionId
@@ -244,7 +245,7 @@ class PeerConnectionHandler(
     }
 
   private def createHandshakeMessage(): Unit = {
-    val nodeInfo = message.Handshake(localPeerSpec, appContext.timeProvider.time)
+    val nodeInfo = message.Handshake(localPeerSpec, timeProvider.time)
 
     /**
      * create, save, and schedule a timeout option. The variable lets us cancel the timeout message
@@ -264,7 +265,7 @@ class PeerConnectionHandler(
 
     val peerInfo = PeerInfo(
       receivedHandshake.peerSpec,
-      appContext.timeProvider.time,
+      timeProvider.time,
       Some(direction)
     )
     val peer = ConnectedPeer(connectionDescription.connectionId, self, Some(peerInfo))
@@ -331,14 +332,6 @@ object PeerConnectionHandlerRef {
     settings:              AppSettings,
     appContext:            AppContext,
     connectionDescription: ConnectionDescription
-  )(implicit ec:           ExecutionContext): Props =
+  )(implicit timeProvider: TimeProvider): Props =
     Props(new PeerConnectionHandler(networkControllerRef, settings, appContext, connectionDescription))
-
-  def apply(
-    networkControllerRef:  ActorRef,
-    settings:              AppSettings,
-    appContext:            AppContext,
-    connectionDescription: ConnectionDescription
-  )(implicit system:       ActorSystem, ec: ExecutionContext): ActorRef =
-    system.actorOf(props(networkControllerRef, settings, appContext, connectionDescription))
 }

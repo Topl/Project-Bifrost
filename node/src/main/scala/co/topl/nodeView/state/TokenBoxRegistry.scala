@@ -2,6 +2,7 @@ package co.topl.nodeView.state
 
 import co.topl.attestation.Address
 import co.topl.modifier.box.{Box, BoxId, TokenBox, TokenValueHolder}
+import co.topl.nodeView.{KeyValueStore, LSMKeyValueStore}
 import co.topl.nodeView.state.MinimalState.VersionTag
 import co.topl.settings.AppSettings
 import co.topl.utils.Logging
@@ -17,7 +18,7 @@ import scala.util.Try
  * @param storage Persistent storage object for saving the TokenBoxRegistry to disk
  * @param nodeKeys set of node keys that denote the state this node will maintain (useful for personal wallet nodes)
  */
-class TokenBoxRegistry(protected val storage: LSMStore, nodeKeys: Option[Set[Address]])
+class TokenBoxRegistry(protected val storage: KeyValueStore, nodeKeys: Option[Set[Address]])
     extends Registry[TokenBoxRegistry.K, TokenBoxRegistry.V] {
 
   import TokenBoxRegistry.{K, V}
@@ -114,7 +115,7 @@ class TokenBoxRegistry(protected val storage: LSMStore, nodeKeys: Option[Set[Add
   }
 
   override def rollbackTo(version: VersionTag): Try[TokenBoxRegistry] = Try {
-    if (storage.lastVersionID.exists(_.data sameElements version.bytes)) {
+    if (storage.latestVersion().exists(_.data sameElements version.bytes)) {
       this
     } else {
       log.debug(s"Rolling back TokenBoxRegistry to: ${version.toString}")
@@ -137,7 +138,7 @@ object TokenBoxRegistry extends Logging {
 
       val file = new File(s"$dataDir/tokenBoxRegistry")
       file.mkdirs()
-      val storage = new LSMStore(file, keySize = Address.addressSize)
+      val storage = new LSMKeyValueStore(new LSMStore(file, keySize = Address.addressSize))
 
       Some(new TokenBoxRegistry(storage, nodeKeys))
 
