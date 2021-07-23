@@ -1,49 +1,45 @@
 package co.topl.crypto.signatures.eddsa
 
 /**
- * AMS 2021:
- * Curve point operations ported from BouncyCastle used in all EC primitives in crypto.primitives.eddsa
- * Licensing: https://www.bouncycastle.org/licence.html
- * Copyright (c) 2000 - 2021 The Legion of the Bouncy Castle Inc. (https://www.bouncycastle.org)
- * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
- * permit persons to whom the Software is furnished to do so, subject to the following conditions:
- * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
- * Software.
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
- * WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- */
+  * AMS 2021:
+  * Curve point operations ported from BouncyCastle used in all EC primitives in crypto.primitives.eddsa
+  * Licensing: https://www.bouncycastle.org/licence.html
+  * Copyright (c) 2000 - 2021 The Legion of the Bouncy Castle Inc. (https://www.bouncycastle.org)
+  * Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+  * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  */
 
-private[crypto] class X25519Field {
+class X25519Field {
 
   val SIZE = 10
-  val M24 = 0x00ffffff
-  val M25 = 0x01ffffff
-  val M26 = 0x03ffffff
+  val M24 = 0x00FFFFFF
+  val M25 = 0x01FFFFFF
+  val M26 = 0x03FFFFFF
+  val ROOT_NEG_ONE: Array[Int] = Array[Int](0x020EA0B0, 0x0386C9D2, 0x00478C4E, 0x0035697F, 0x005E8630, 0x01FBD7A7, 0x0340264F, 0x01F0B2B4, 0x00027E0E, 0x00570649)
 
-  val ROOT_NEG_ONE: Array[Int] = Array[Int](0x020ea0b0, 0x0386c9d2, 0x00478c4e, 0x0035697f, 0x005e8630, 0x01fbd7a7,
-    0x0340264f, 0x01f0b2b4, 0x00027e0e, 0x00570649)
-
-  def add(x: Array[Int], y: Array[Int], z: Array[Int]): Unit =
-    for (i <- 0 until SIZE)
+  def add(x: Array[Int], y: Array[Int], z: Array[Int]): Unit = {
+    for (i <- 0 until SIZE) {
       z(i) = x(i) + y(i)
+    }
+  }
 
-  def addOne(z: Array[Int]): Unit =
+  def addOne(z: Array[Int]): Unit = {
     z(0) += 1
+  }
 
-  def addOne(z: Array[Int], zOff: Int): Unit =
+  def addOne(z: Array[Int], zOff: Int): Unit = {
     z(zOff) += 1
+  }
 
-  def apm(x: Array[Int], y: Array[Int], zp: Array[Int], zm: Array[Int]): Unit =
+  def apm(x: Array[Int], y: Array[Int], zp: Array[Int], zm: Array[Int]): Unit = {
     for (i <- 0 until SIZE) {
       val xi = x(i)
       val yi = y(i)
       zp(i) = xi + yi
       zm(i) = xi - yi
     }
+  }
 
   def carry(z: Array[Int]): Unit = {
     var z0 = z(0)
@@ -88,23 +84,27 @@ private[crypto] class X25519Field {
     z(9) = z9
   }
 
-  def cmov(cond: Int, x: Array[Int], xOff: Int, z: Array[Int], zOff: Int): Unit =
+  def cmov(cond: Int, x: Array[Int], xOff: Int, z: Array[Int], zOff: Int): Unit = {
     for (i <- 0 until SIZE) {
       var z_i = z(zOff + i)
       val diff = z_i ^ x(xOff + i)
       z_i ^= (diff & cond)
       z(zOff + i) = z_i
     }
+  }
 
   def cnegate(negate: Int, z: Array[Int]): Unit = {
     val mask = 0 - negate
-    for (i <- 0 until SIZE)
+    for (i <- 0 until SIZE) {
       z(i) = (z(i) ^ mask) - mask
+    }
   }
 
-  def copy(x: Array[Int], xOff: Int, z: Array[Int], zOff: Int): Unit =
-    for (i <- 0 until SIZE)
+  def copy(x: Array[Int], xOff: Int, z: Array[Int], zOff: Int): Unit = {
+    for (i <- 0 until SIZE) {
       z(zOff + i) = x(xOff + i)
+    }
+  }
 
   def create = new Array[Int](SIZE)
 
@@ -139,11 +139,11 @@ private[crypto] class X25519Field {
     z(zOff + 4) = t3 >>> 7
   }
 
-  def decode32(bs: Array[Byte], off: Int): Int = {
-    var n = bs(off) & 0xff
-    n |= (bs(off + 1) & 0xff) << 8
-    n |= (bs(off + 2) & 0xff) << 16
-    n |= bs(off + 3) << 24
+  def decode32(bs: Array[Byte], off: Int):Int = {
+    var n = bs(off) & 0xFF
+    n |= (bs(off+1) & 0xFF) << 8
+    n |= (bs(off+2) & 0xFF) << 16
+    n |= bs(off+3) << 24
     n
   }
 
@@ -170,9 +170,9 @@ private[crypto] class X25519Field {
 
   def encode32(n: Int, bs: Array[Byte], off: Int): Unit = {
     bs(off) = n.toByte
-    bs(off + 1) = (n >>> 8).toByte
-    bs(off + 2) = (n >>> 16).toByte
-    bs(off + 3) = (n >>> 24).toByte
+    bs(off+1) = (n >>> 8).toByte
+    bs(off+2) = (n >>> 16).toByte
+    bs(off+3) = (n >>> 24).toByte
   }
 
   def inv(x: Array[Int], z: Array[Int]): Unit = {
@@ -187,8 +187,9 @@ private[crypto] class X25519Field {
 
   def isZero(x: Array[Int]): Int = {
     var d = 0
-    for (i <- 0 until SIZE)
+    for (i <- 0 until SIZE) {
       d |= x(i)
+    }
     d = (d >>> 1) | (d & 1)
     (d - 1) >> 31
   }
@@ -374,9 +375,11 @@ private[crypto] class X25519Field {
     z(9) = z9 + t.toInt
   }
 
-  def negate(x: Array[Int], z: Array[Int]): Unit =
-    for (i <- 0 until SIZE)
+  def negate(x: Array[Int], z: Array[Int]): Unit = {
+    for (i <- 0 until SIZE) {
       z(i) = -x(i)
+    }
+  }
 
   def normalize(z: Array[Int]): Unit = {
     val x = (z(9) >>> 23) & 1
@@ -386,8 +389,9 @@ private[crypto] class X25519Field {
 
   def one(z: Array[Int]): Unit = {
     z(0) = 1
-    for (i <- 1 until SIZE)
+    for (i <- 1 until SIZE) {
       z(i) = 0
+    }
   }
 
   def powPm5d8(x: Array[Int], rx2: Array[Int], rz: Array[Int]): Unit = {
@@ -571,7 +575,7 @@ private[crypto] class X25519Field {
   def sqr(x: Array[Int], n: Int, z: Array[Int]): Unit = {
     var nv = n
     sqr(x, z)
-    while ({ nv -= 1; nv } > 0) sqr(z, z)
+    while ({nv -= 1; nv} > 0) sqr(z, z)
   }
 
   def sqrtRatioVar(u: Array[Int], v: Array[Int], z: Array[Int]): Boolean = {
@@ -604,15 +608,20 @@ private[crypto] class X25519Field {
     false
   }
 
-  def sub(x: Array[Int], y: Array[Int], z: Array[Int]): Unit =
-    for (i <- 0 until SIZE)
+  def sub(x: Array[Int], y: Array[Int], z: Array[Int]): Unit = {
+    for (i <- 0 until SIZE) {
       z(i) = x(i) - y(i)
+    }
+  }
 
-  def subOne(z: Array[Int]): Unit =
+  def subOne(z: Array[Int]): Unit = {
     z(0) -= 1
+  }
 
-  def zero(z: Array[Int]): Unit =
-    for (i <- 0 until SIZE)
+  def zero(z: Array[Int]): Unit = {
+    for (i <- 0 until SIZE) {
       z(i) = 0
+    }
+  }
 
 }
