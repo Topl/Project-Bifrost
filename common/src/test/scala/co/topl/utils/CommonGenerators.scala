@@ -88,6 +88,7 @@ trait CommonGenerators extends Logging with NetworkPrefixTestHelper {
 
   lazy val positiveTinyIntGen: Gen[Int] = Gen.choose(intMin, tinyIntMax)
   lazy val positiveMediumIntGen: Gen[Int] = Gen.choose(intMin, medIntMax)
+  lazy val positiveThresholdIntGen: Gen[Int] = Gen.choose(4, 20) // need numKeys/2 greater than 1 for tests
 
   lazy val positiveDoubleGen: Gen[Double] = Gen.choose(0, Double.MaxValue)
 
@@ -435,9 +436,25 @@ trait CommonGenerators extends Logging with NetworkPrefixTestHelper {
   lazy val transferGen: Gen[TransferTransaction[_ <: TokenValueHolder, _ <: Proposition]] =
     Gen.oneOf(polyTransferGen, arbitTransferGen, assetTransferGen)
 
+  lazy val oneOfNPropositionCurve25519Gen: Gen[(Set[PrivateKeyCurve25519], ThresholdPropositionCurve25519)] = for {
+    n <- positiveTinyIntGen
+  } yield {
+    val setOfKeys = (0 until n)
+      .map { _ =>
+        val key = sampleUntilNonEmpty(keyCurve25519Gen)
+        (key._1, key._2)
+      }
+      .foldLeft((Set[PrivateKeyCurve25519](), Set[PublicKeyPropositionCurve25519]())) { (set, cur) =>
+        (set._1 + cur._1, set._2 + cur._2)
+      }
+    val pubKeyProps = SortedSet[PublicKeyPropositionCurve25519]() ++ setOfKeys._2
+    val prop = ThresholdPropositionCurve25519(1, pubKeyProps)
+
+    (setOfKeys._1, prop)
+  }
+
   lazy val thresholdPropositionCurve25519Gen: Gen[(Set[PrivateKeyCurve25519], ThresholdPropositionCurve25519)] = for {
-    numKeys   <- positiveMediumIntGen
-    threshold <- positiveTinyIntGen
+    numKeys <- positiveThresholdIntGen
   } yield {
     val setOfKeys = (0 until numKeys)
       .map { _ =>
@@ -448,13 +465,14 @@ trait CommonGenerators extends Logging with NetworkPrefixTestHelper {
         (set._1 + cur._1, set._2 + cur._2)
       }
     val props = SortedSet[PublicKeyPropositionCurve25519]() ++ setOfKeys._2
+    val threshold = numKeys / 2
     val thresholdProp = ThresholdPropositionCurve25519(threshold, props)
 
     (setOfKeys._1, thresholdProp)
   }
 
   lazy val thresholdSignatureCurve25519Gen: Gen[ThresholdSignatureCurve25519] = for {
-    numKeys <- positiveMediumIntGen
+    numKeys <- positiveThresholdIntGen
     message <- nonEmptyBytesGen
   } yield {
     val sigs = (0 until numKeys).map { _ =>
@@ -502,23 +520,6 @@ trait CommonGenerators extends Logging with NetworkPrefixTestHelper {
 
   lazy val attestationGen: Gen[Map[_ <: Proposition, Proof[_ <: Proposition]]] =
     Gen.oneOf(attestationCurve25519Gen, attestationEd25519Gen)
-
-  lazy val oneOfNPropositionCurve25519Gen: Gen[(Set[PrivateKeyCurve25519], ThresholdPropositionCurve25519)] = for {
-    n <- positiveTinyIntGen
-  } yield {
-    val setOfKeys = (0 until n)
-      .map { _ =>
-        val key = sampleUntilNonEmpty(keyCurve25519Gen)
-        (key._1, key._2)
-      }
-      .foldLeft((Set[PrivateKeyCurve25519](), Set[PublicKeyPropositionCurve25519]())) { (set, cur) =>
-        (set._1 + cur._1, set._2 + cur._2)
-      }
-    val pubKeyProps = SortedSet[PublicKeyPropositionCurve25519]() ++ setOfKeys._2
-    val prop = ThresholdPropositionCurve25519(1, pubKeyProps)
-
-    (setOfKeys._1, prop)
-  }
 
   val transactionTypes: Seq[Gen[Transaction.TX]] =
     Seq(polyTransferGen, arbitTransferGen, assetTransferGen)

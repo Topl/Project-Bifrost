@@ -1,8 +1,9 @@
-package co.topl.consensus.genesis
+package co.topl.consensus
 
 import co.topl.attestation.EvidenceProducer.Syntax._
 import co.topl.attestation._
 import co.topl.consensus.Forger.ChainParams
+import co.topl.consensus.genesis.GenesisProvider
 import co.topl.modifier.ModifierId
 import co.topl.modifier.block.Block
 import co.topl.modifier.block.PersistentNodeViewModifier.PNVMVersion

@@ -131,24 +131,24 @@ case class ThresholdSignatureCurve25519(private[attestation] val signatures: Set
     //       (i.e. the check should fail quickly)
     require(proposition.pubKeyProps.size >= proposition.threshold)
 
+    var unusedProps: Map[PublicKeyPropositionCurve25519, Boolean] =
+      proposition.pubKeyProps.map(_ -> true).toMap
+
     // only need to check until the threshold is exceeded
     val numValidSigs = signatures.foldLeft(0) { (acc, sig) =>
       if (acc < proposition.threshold) {
-        if (
-          proposition.pubKeyProps
-            .exists(prop => Curve25519.verify(sig.sigBytes, message, prop.pubKeyBytes))
-        ) {
-          1
-        } else {
-          0
+        proposition.pubKeyProps
+          .find(prop => Curve25519.verify(sig.sigBytes, message, prop.pubKeyBytes) && unusedProps(prop)) match {
+          case Some(prop) =>
+            unusedProps += (prop -> false)
+            acc + 1
+          case None =>
+            acc
         }
-      } else {
-        0
-      }
+      } else acc
     }
 
     require(numValidSigs >= proposition.threshold)
-
   }.isSuccess
 
 }
