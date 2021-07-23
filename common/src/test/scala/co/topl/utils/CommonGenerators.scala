@@ -20,6 +20,7 @@ import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Suite
 
 import scala.collection.SortedSet
+import scala.collection.immutable.ListMap
 import scala.util.Random
 
 /**
@@ -489,16 +490,17 @@ trait CommonGenerators extends Logging with NetworkPrefixTestHelper {
     seqLen <- positiveTinyIntGen
   } yield ((0 until seqLen) map { _ => sampleUntilNonEmpty(keyCurve25519Gen) }).toSet
 
-  lazy val attestationCurve25519Gen: Gen[Map[PublicKeyPropositionCurve25519, Proof[PublicKeyPropositionCurve25519]]] =
+  lazy val attestationCurve25519Gen
+    : Gen[ListMap[PublicKeyPropositionCurve25519, Proof[PublicKeyPropositionCurve25519]]] =
     for {
       prop <- propositionCurve25519Gen
       sig  <- signatureCurve25519Gen
-    } yield Map(prop -> sig)
+    } yield ListMap(prop -> sig)
 
-  lazy val attestationEd25519Gen: Gen[Map[PublicKeyPropositionEd25519, Proof[PublicKeyPropositionEd25519]]] = for {
+  lazy val attestationEd25519Gen: Gen[ListMap[PublicKeyPropositionEd25519, Proof[PublicKeyPropositionEd25519]]] = for {
     prop <- propositionEd25519Gen
     sig  <- signatureEd25519Gen
-  } yield Map(prop -> sig)
+  } yield ListMap(prop -> sig)
 
   lazy val attestationGen: Gen[Map[_ <: Proposition, Proof[_ <: Proposition]]] =
     Gen.oneOf(attestationCurve25519Gen, attestationEd25519Gen)

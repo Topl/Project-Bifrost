@@ -27,6 +27,8 @@ classes
 .history
 .bifrost/
 keyfiles/
+ldb_main
+ldb_undo
 
 # for temporary experiments
 sheet.scala

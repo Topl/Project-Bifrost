@@ -1,10 +1,10 @@
 package co.topl.nodeView.state
 
 import co.topl.modifier.box.{BoxId, ProgramBox, ProgramId}
+import co.topl.db.LDBVersionedStore
 import co.topl.nodeView.state.MinimalState.VersionTag
 import co.topl.settings.AppSettings
 import co.topl.utils.Logging
-import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 
 import java.io.File
 import scala.util.{Failure, Success, Try}
@@ -14,7 +14,8 @@ import scala.util.{Failure, Success, Try}
  *
  * @param storage Persistent storage object for saving the ProgramBoxRegistry to disk
  */
-class ProgramBoxRegistry(protected val storage: LSMStore) extends Registry[ProgramBoxRegistry.K, ProgramBoxRegistry.V] {
+class ProgramBoxRegistry(protected val storage: LDBVersionedStore)
+    extends Registry[ProgramBoxRegistry.K, ProgramBoxRegistry.V] {
 
   import ProgramBoxRegistry.{K, V}
 
@@ -66,10 +67,10 @@ class ProgramBoxRegistry(protected val storage: LSMStore) extends Registry[Progr
           .foldLeft((Seq[K](), Seq[(K, V)]()))((acc, progId) => (acc._1 ++ progId._1, acc._2 ++ progId._2))
 
       storage.update(
-        ByteArrayWrapper(newVersion.bytes),
-        deleted.map(k => ByteArrayWrapper(registryInput(k))),
+        newVersion.bytes,
+        deleted.map(k => registryInput(k)),
         updated.map { case (key, value) =>
-          ByteArrayWrapper(registryInput(key)) -> ByteArrayWrapper(value.hash.value)
+          registryInput(key) -> value.hash.value
         }
       )
 
@@ -82,11 +83,11 @@ class ProgramBoxRegistry(protected val storage: LSMStore) extends Registry[Progr
     }
 
   override def rollbackTo(version: VersionTag): Try[ProgramBoxRegistry] = Try {
-    if (storage.lastVersionID.exists(_.data sameElements version.bytes)) {
+    if (storage.lastVersionID.exists(_ sameElements version.bytes)) {
       this
     } else {
       log.debug(s"Rolling back ProgramBoxRegistry to: ${version.toString}")
-      storage.rollback(ByteArrayWrapper(version.bytes))
+      storage.rollbackTo(version.bytes)
       new ProgramBoxRegistry(storage)
     }
   }
@@ -105,7 +106,7 @@ object ProgramBoxRegistry extends Logging {
 
       val file = new File(s"$dataDir/programBoxRegistry")
       file.mkdirs()
-      val storage = new LSMStore(file, keySize = ProgramId.size)
+      val storage = new LDBVersionedStore(file, 1000)
 
       Some(new ProgramBoxRegistry(storage))
 

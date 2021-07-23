@@ -8,9 +8,9 @@ import co.topl.modifier.transaction.Transaction
 import co.topl.network.message.BifrostSyncInfo
 import co.topl.nodeView.history.GenericHistory._
 import co.topl.nodeView.history.History.GenesisParentId
+import co.topl.db.LDBVersionedStore
 import co.topl.settings.AppSettings
 import co.topl.utils.{Logging, TimeProvider}
-import io.iohk.iodb.LSMStore
 
 import java.io.File
 import scala.annotation.tailrec
@@ -487,7 +487,7 @@ object History extends Logging {
     val dataDir = settings.application.dataDir.ensuring(_.isDefined, "A data directory must be specified").get
     val file = new File(s"$dataDir/blocks")
     file.mkdirs()
-    val blockStorageDB = new LSMStore(file)
+    val blockStorageDB = new LDBVersionedStore(file, 100)
     val storage = new Storage(blockStorageDB, settings.application.cacheExpire, settings.application.cacheSize)
 
     /** This in-memory cache helps us to keep track of tines sprouting off the canonical chain */

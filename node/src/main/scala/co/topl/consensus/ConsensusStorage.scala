@@ -1,15 +1,14 @@
 package co.topl.consensus
 
 import co.topl.crypto.hash.blake2b256
-import co.topl.crypto.implicits._
+import co.topl.crypto.hash.digest.Digest32
+import co.topl.crypto.hash.digest.implicits._
 import co.topl.modifier.ModifierId
+import co.topl.db.LDBVersionedStore
 import co.topl.settings.AppSettings
-import co.topl.utils.codecs.FromBytes.implicits._
 import co.topl.utils.NetworkType.{LocalTestnet, PrivateTestnet}
-import co.topl.utils.codecs.implicits.digestBytesEncoder
 import co.topl.utils.{Int128, Logging, NetworkType}
 import com.google.common.primitives.Longs
-import io.iohk.iodb.{ByteArrayWrapper, LSMStore, Store}
 
 import java.io.File
 
@@ -18,10 +17,9 @@ import java.io.File
  * @param storage the LSM store to persist values in
  * @param defaultTotalStake should be 10000000 for private and local testnet, and 200000000000000000L otherwise
  */
-class ConsensusStorage(storage: Option[Store], private val defaultTotalStake: Int128) extends Logging {
+class ConsensusStorage(storage: Option[LDBVersionedStore], private val defaultTotalStake: Int128) extends Logging {
 
-  private def byteArrayWrappedKey(name: String): ByteArrayWrapper =
-    ByteArrayWrapper(blake2b256.hash(name.getBytes).bytes)
+  private def byteArrayWrappedKey(name: String): Digest32 = blake2b256.hash(name.getBytes)
 
   // constant keys for each piece of consensus state
   private val totalStakeKey = byteArrayWrappedKey("totalStake")
@@ -35,22 +33,22 @@ class ConsensusStorage(storage: Option[Store], private val defaultTotalStake: In
 
   private val totalStakeFromStorageOrDefault =
     storage
-      .flatMap(_.get(totalStakeKey).map(v => Int128(v.data)))
+      .flatMap(_.get(totalStakeKey.bytes).map(Int128(_)))
       .getOrElse(defaultTotalStake)
 
   private val difficultyFromStorageOrDefault =
     storage
-      .flatMap(_.get(difficultyKey).map(v => Longs.fromByteArray(v.data)))
+      .flatMap(_.get(difficultyKey.bytes).map(Longs.fromByteArray))
       .getOrElse(defaultDifficulty)
 
   private val inflationFromStorageOrDefault =
     storage
-      .flatMap(_.get(inflationKey).map(v => Longs.fromByteArray(v.data)))
+      .flatMap(_.get(inflationKey.bytes).map(Longs.fromByteArray))
       .getOrElse(defaultInflation)
 
   private val heightFromStorageOrDefault =
     storage
-      .flatMap(_.get(heightKey).map(v => Longs.fromByteArray(v.data)))
+      .flatMap(_.get(heightKey.bytes).map(Longs.fromByteArray))
       .getOrElse(defaultHeight)
 
   // cached state
@@ -75,16 +73,14 @@ class ConsensusStorage(storage: Option[Store], private val defaultTotalStake: In
     _inflation = params.inflation
     _height = params.height
 
-    val versionId = toVersionId(blockId)
+    val versionId = blockId.getIdBytes
 
-    val totalStakePair = Seq(totalStakeKey -> params.totalStake.toByteArray)
-    val difficultyPair = Seq(difficultyKey -> Longs.toByteArray(params.difficulty))
-    val inflationPair = Seq(inflationKey -> Longs.toByteArray(params.inflation))
-    val heightPair = Seq(heightKey -> Longs.toByteArray(params.height))
+    val totalStakePair = Seq(totalStakeKey.bytes -> params.totalStake.toByteArray)
+    val difficultyPair = Seq(difficultyKey.bytes -> Longs.toByteArray(params.difficulty))
+    val inflationPair = Seq(inflationKey.bytes -> Longs.toByteArray(params.inflation))
+    val heightPair = Seq(heightKey.bytes -> Longs.toByteArray(params.height))
 
-    val toUpdate = (totalStakePair ++ difficultyPair ++ inflationPair ++ heightPair).map { case (k, v) =>
-      k -> ByteArrayWrapper(v)
-    }
+    val toUpdate = totalStakePair ++ difficultyPair ++ inflationPair ++ heightPair
 
     // update cached values here
     storage match {
@@ -101,7 +97,7 @@ class ConsensusStorage(storage: Option[Store], private val defaultTotalStake: In
   def rollbackTo(blockId: ModifierId): Either[NoStorageError, Unit] =
     storage match {
       case Some(store) =>
-        store.rollback(toVersionId(blockId))
+        store.rollbackTo(blockId.getIdBytes)
 
         // reset cached values to stored values or defaults
         _difficulty = difficultyFromStorageOrDefault
@@ -113,14 +109,6 @@ class ConsensusStorage(storage: Option[Store], private val defaultTotalStake: In
       case None =>
         Left(NoStorageError())
     }
-
-  /**
-   * Converts the given block ID to a version ID to use with LSM Store.
-   * @param blockId the ID of the block
-   * @return the version ID
-   */
-  private def toVersionId(blockId: ModifierId): ByteArrayWrapper = ByteArrayWrapper(blockId.getIdBytes)
-
 }
 
 object ConsensusStorage {
@@ -134,12 +122,13 @@ object ConsensusStorage {
     }
     val file = new File(s"$dataDir/consensus")
     file.mkdirs()
-    val storage = new LSMStore(file)
+
+    val versionedStore = new LDBVersionedStore(file, 100)
 
     // todo: JAA - we need to find a better pattern than this. I see why it is the most straightforward for now,
     //       but maybe we elevate the ConsensusStorage interface up to a sealed abstract class and have two instances?
     //
-    val consensusStorage = new ConsensusStorage(Some(storage), defaultTotalStake)
+    val consensusStorage = new ConsensusStorage(Some(versionedStore), defaultTotalStake)
 
     consensusStorage
   }

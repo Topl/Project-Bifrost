@@ -100,8 +100,8 @@ class HistoryDebug(hr: HistoryReader[Block, _ <: SyncInfo]) {
 //    getBlockIdsByBloom(f).flatMap { b =>
 //      modifierById(b).get.transactions.filter { tx =>
 //        tx.bloomTopics.exists { txTopic =>
-//          val txBloomsWrapper = ByteArrayWrapper(txTopic)
-//          val queryBloomsWrapper = queryBloomTopics.map(ByteArrayWrapper(_))
+//          val txBloomsWrapper = (txTopic)
+//          val queryBloomsWrapper = queryBloomTopics.map((_))
 //          queryBloomsWrapper.contains(txBloomsWrapper)
 //        }
 //      }

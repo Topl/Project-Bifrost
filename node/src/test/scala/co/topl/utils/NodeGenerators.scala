@@ -9,11 +9,11 @@ import co.topl.modifier.box.Box.identifier
 import co.topl.modifier.box._
 import co.topl.modifier.transaction.Transaction.TX
 import co.topl.modifier.transaction.{ArbitTransfer, AssetTransfer, PolyTransfer, Transaction}
+import co.topl.db.LDBVersionedStore
 import co.topl.nodeView.history.{BlockProcessor, History, Storage}
 import co.topl.nodeView.state.State
 import co.topl.settings.{AppSettings, StartupOpts, Version}
 import co.topl.utils.StringDataTypes.Latin1Data
-import io.iohk.iodb.LSMStore
 import org.scalacheck.Gen
 import org.scalatest.Suite
 
@@ -51,7 +51,7 @@ trait NodeGenerators extends CommonGenerators with KeyFileTestHelper {
 
     val iFile = new File(s"$dataDir/blocks")
     iFile.mkdirs()
-    val blockStorage = new LSMStore(iFile)
+    val blockStorage = new LDBVersionedStore(iFile, 100)
 
     val storage = new Storage(blockStorage, settings.application.cacheExpire, settings.application.cacheSize)
     //we don't care about validation here

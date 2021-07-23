@@ -12,6 +12,8 @@ import co.topl.utils.IdiomaticScalaTransition.implicits.toEitherOps
 import com.google.common.primitives.Longs
 import io.circe.{Decoder, Encoder, HCursor}
 
+import scala.collection.immutable.ListMap
+
 abstract class Transaction[+T, P <: Proposition](implicit val identifiableEv: Identifiable[P])
     extends NodeViewModifier {
 
@@ -25,7 +27,7 @@ abstract class Transaction[+T, P <: Proposition](implicit val identifiableEv: Id
 
   val newBoxes: Iterable[Box[T]]
 
-  val attestation: Map[P, Proof[P]]
+  val attestation: ListMap[P, Proof[P]]
 
   val fee: Int128
 
@@ -54,7 +56,7 @@ object Transaction {
 
   def updateAttestation[
     P <: Proposition
-  ](tx: Transaction[_, P])(f: Array[Byte] => Map[P, Proof[P]]): Map[P, Proof[P]] =
+  ](tx: Transaction[_, P])(f: Array[Byte] => ListMap[P, Proof[P]]): ListMap[P, Proof[P]] =
     tx.attestation ++ f(tx.messageToSign)
 
   def nonceFromDigest(digest: Digest32): Box.Nonce =

@@ -8,7 +8,7 @@ import co.topl.utils.Identifiable
 import co.topl.utils.NetworkType.NetworkPrefix
 import io.circe.Json
 
-import scala.collection.immutable.Set
+import scala.collection.immutable.{ListMap, Set}
 import scala.util.{Failure, Success}
 
 object Brambl {
@@ -64,7 +64,7 @@ object Brambl {
 
     val msg2Sign = transaction.messageToSign
     val signFunc = (addr: Address) => f(addr)(msg2Sign)
-    val signatures = addresses.map(signFunc).reduce(_ ++ _)
+    val signatures = ListMap.from(addresses.map(signFunc).reduce(_ ++ _))
 
     // I know this is eliminated by erasure but unsure how to fix at the moment and I've already restrited
     // Brambl to only work with PublicKey props at the moment so this shouldn't fail.

@@ -2,13 +2,19 @@ package co.topl.nodeView.history
 
 import co.topl.consensus.consensusHelper.setProtocolMngr
 import co.topl.modifier.block.Block
-import co.topl.utils.NodeGenerators
-import io.iohk.iodb.ByteArrayWrapper
+import co.topl.utils.{CommonGenerators, NodeGenerators}
+import org.scalatest.DoNotDiscover
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.propspec.AnyPropSpec
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-class StorageCacheSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks with Matchers with NodeGenerators {
+@DoNotDiscover
+class StorageCacheSpec
+    extends AnyPropSpec
+    with ScalaCheckPropertyChecks
+    with Matchers
+    with CommonGenerators
+    with NodeGenerators {
 
   var history: History = _
 
@@ -22,13 +28,17 @@ class StorageCacheSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks w
   }
 
   property("The genesis block is stored in cache") {
-    val genesisBlockId = ByteArrayWrapper(Array.fill(history.storage.storage.keySize)(-1: Byte))
+    val genesisBlockId = genesisBlock.parentId
 
-    history.storage.blockCache.getIfPresent(genesisBlockId) shouldEqual history.storage.storage.get(genesisBlockId)
+    println(s"${genesisBlockId}")
+    println(s"${history.storage.modifierById(genesisBlockId)}")
+
+    history.storage.blockCache.getIfPresent(genesisBlockId) shouldEqual
+    history.storage.modifierById(genesisBlockId).get.bytes
   }
 
   property("Cache should invalidate all entry when it's rolled back in storage") {
-    val bestBlockIdKey = ByteArrayWrapper(Array.fill(history.storage.storage.keySize)(-1: Byte))
+    val bestBlockIdKey = genesisBlock.parentId
 
     /* Append a new block, make sure it is updated in cache, then drop it */
     val fstBlock: Block = blockCurve25519Gen.sample.get.copy(parentId = history.bestBlockId)
@@ -66,8 +76,8 @@ class StorageCacheSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks w
       val block: Block = blockTemp.copy(parentId = history.bestBlockId)
 
       history = history.append(block).get._1
-      history.storage.blockCache.getIfPresent(ByteArrayWrapper(block.id.getIdBytes)) shouldEqual
-      history.storage.storage.get(ByteArrayWrapper(block.id.getIdBytes))
+      history.storage.blockCache.getIfPresent(block.id.getIdBytes) shouldEqual
+      history.storage.storage.get(block.id.getIdBytes)
     }
   }
 
@@ -82,7 +92,7 @@ class StorageCacheSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks w
     val fstBlock: Block = BlockGen.sample.get.copy(parentId = history.bestBlockId)
     history = history.append(fstBlock).get._1
 
-    history.storage.blockCache.getIfPresent(ByteArrayWrapper(fstBlock.id.hashBytes)) should not be null
+    history.storage.blockCache.getIfPresent((fstBlock.id.hashBytes)) should not be null
 
     /* Append a number of new blocks, so that we store more entries than the cache size limit */
     /* Assuming an average new block creates more than 50 entries */
@@ -92,7 +102,7 @@ class StorageCacheSpec extends AnyPropSpec with ScalaCheckDrivenPropertyChecks w
       history = history.append(oneBlock).get._1
     }
 
-    history.storage.blockCache.getIfPresent(ByteArrayWrapper(fstBlock.id.hashBytes)) shouldBe null
+    history.storage.blockCache.getIfPresent((fstBlock.id.hashBytes)) shouldBe null
   }
    */
 

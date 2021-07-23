@@ -64,7 +64,7 @@ class DifficultyBlockValidator(storage: Storage, blockProcessor: BlockProcessor)
     )
 
     // did the forger create a block with a valid forger box and adjusted difficulty?
-    require(hit < target, s"Block difficulty failed since $hit >= $target")
+    require(BigInt(hit) < target, s"Block difficulty failed since $hit >= $target")
   }
 
   /** Helper function to find the source of the parent block (either storage or chain cache) */

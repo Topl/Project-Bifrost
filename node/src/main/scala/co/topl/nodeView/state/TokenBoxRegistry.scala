@@ -2,11 +2,11 @@ package co.topl.nodeView.state
 
 import co.topl.attestation.Address
 import co.topl.modifier.box.{Box, BoxId, TokenBox, TokenValueHolder}
+import co.topl.db.LDBVersionedStore
 import co.topl.nodeView.state.MinimalState.VersionTag
 import co.topl.settings.AppSettings
 import co.topl.utils.Logging
 import com.google.common.primitives.Longs
-import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 
 import java.io.File
 import scala.util.Try
@@ -17,7 +17,7 @@ import scala.util.Try
  * @param storage Persistent storage object for saving the TokenBoxRegistry to disk
  * @param nodeKeys set of node keys that denote the state this node will maintain (useful for personal wallet nodes)
  */
-class TokenBoxRegistry(protected val storage: LSMStore, nodeKeys: Option[Set[Address]])
+class TokenBoxRegistry(protected val storage: LDBVersionedStore, nodeKeys: Option[Set[Address]])
     extends Registry[TokenBoxRegistry.K, TokenBoxRegistry.V] {
 
   import TokenBoxRegistry.{K, V}
@@ -105,20 +105,20 @@ class TokenBoxRegistry(protected val storage: LSMStore, nodeKeys: Option[Set[Add
 
   private def saveToStore(newVersion: VersionTag, toDelete: Seq[K], toUpdate: Seq[(K, Seq[V])]): Try[Unit] = Try {
     storage.update(
-      ByteArrayWrapper(newVersion.bytes),
-      toDelete.map(k => ByteArrayWrapper(registryInput(k))),
+      newVersion.bytes,
+      toDelete.map(k => registryInput(k)),
       toUpdate.map { case (key, value) =>
-        ByteArrayWrapper(registryInput(key)) -> ByteArrayWrapper(value.flatMap(Longs.toByteArray).toArray)
+        registryInput(key) -> value.flatMap(Longs.toByteArray).toArray
       }
     )
   }
 
   override def rollbackTo(version: VersionTag): Try[TokenBoxRegistry] = Try {
-    if (storage.lastVersionID.exists(_.data sameElements version.bytes)) {
+    if (storage.lastVersionID.exists(_ sameElements version.bytes)) {
       this
     } else {
       log.debug(s"Rolling back TokenBoxRegistry to: ${version.toString}")
-      storage.rollback(ByteArrayWrapper(version.bytes))
+      storage.rollbackTo(version.bytes)
       new TokenBoxRegistry(storage, nodeKeys)
     }
   }
@@ -137,7 +137,7 @@ object TokenBoxRegistry extends Logging {
 
       val file = new File(s"$dataDir/tokenBoxRegistry")
       file.mkdirs()
-      val storage = new LSMStore(file, keySize = Address.addressSize)
+      val storage = new LDBVersionedStore(file, 1000)
 
       Some(new TokenBoxRegistry(storage, nodeKeys))
 

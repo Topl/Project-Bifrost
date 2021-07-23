@@ -10,6 +10,7 @@ import co.topl.utils.StringDataTypes.{Base58Data, Latin1Data}
 import com.google.common.primitives.Ints
 
 import java.io.File
+import scala.collection.immutable.ListMap
 import scala.util.{Failure, Success, Try}
 
 class KeyRing[
@@ -58,14 +59,14 @@ class KeyRing[
    * @param messageToSign the message that should be committed to
    * @return a map that can be inserted into a transaction
    */
-  def generateAttestation(addr: Address)(messageToSign: Array[Byte]): Map[PK, PR] =
+  def generateAttestation(addr: Address)(messageToSign: Array[Byte]): ListMap[PK, PR] =
     (lookupPublicKey(addr), signWithAddress(addr)(messageToSign)) match {
-      case (Success(pk), Success(sig)) => Map(pk -> sig)
+      case (Success(pk), Success(sig)) => ListMap(pk -> sig)
       case (_, Failure(e))             => throw e
       case (Failure(e), _)             => throw e // this assumes the failure is due to not finding the address
     }
 
-  def generateAttestation(addresses: Set[Address])(messageToSign: Array[Byte]): Map[PK, PR] =
+  def generateAttestation(addresses: Set[Address])(messageToSign: Array[Byte]): ListMap[PK, PR] =
     addresses.map(addr => generateAttestation(addr)(messageToSign)).reduce(_ ++ _)
 
   /**

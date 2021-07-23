@@ -10,6 +10,7 @@ import co.topl.modifier.box.serialization.BoxSerializer
 import co.topl.modifier.transaction._
 import co.topl.modifier.transaction.validation._
 import co.topl.modifier.transaction.validation.implicits._
+import co.topl.db.LDBVersionedStore
 import co.topl.nodeView.state.MinimalState.VersionTag
 import co.topl.settings.AppSettings
 import co.topl.utils.IdiomaticScalaTransition.implicits.toValidatedOps
@@ -17,7 +18,6 @@ import co.topl.utils.Logging
 import co.topl.utils.NetworkType.NetworkPrefix
 import co.topl.utils.StringDataTypes.Base58Data
 import co.topl.utils.encode.Base58
-import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 
 import java.io.File
 import scala.reflect.ClassTag
@@ -28,13 +28,13 @@ import scala.util.{Failure, Success, Try}
  * applicable to it or not. Also has methods to get a closed box, to apply a persistent modifier, and to roll back
  * to a previous version.
  *
- * @param storage singleton Iodb storage instance
+ * @param storage singleton storage instance
  * @param version blockId used to identify each block. Also used for rollback
  *                //@param timestamp timestamp of the block that results in this state
  */
 case class State(
   override val version:      VersionTag,
-  protected val storage:     LSMStore,
+  protected val storage:     LDBVersionedStore,
   private[state] val tbrOpt: Option[TokenBoxRegistry] = None,
   private[state] val pbrOpt: Option[ProgramBoxRegistry] = None,
   nodeKeys:                  Option[Set[Address]] = None
@@ -135,11 +135,11 @@ case class State(
       None
     }
 
-    if (storage.lastVersionID.exists(_.data sameElements version.bytes)) {
+    if (storage.lastVersionID.exists(_ sameElements version.bytes)) {
       this
     } else {
       log.debug(s"Rollback State to $version from version ${this.version.toString}")
-      storage.rollback(ByteArrayWrapper(version.bytes))
+      storage.rollbackTo(version.bytes)
 
       State(version, storage, updatedTBR, updatedPBR, nodeKeys)
     }
@@ -186,7 +186,7 @@ case class State(
       val boxesToAdd = (nodeKeys match {
         case Some(keys) => stateChanges.toAppend.filter(b => keys.contains(Address(b.evidence)))
         case None       => stateChanges.toAppend
-      }).map(b => ByteArrayWrapper(b.id.hash.value) -> ByteArrayWrapper(b.bytes))
+      }).map(b => b.id.hash.value -> b.bytes)
 
       val boxIdsToRemove = (nodeKeys match {
         case Some(keys) =>
@@ -196,7 +196,7 @@ case class State(
             .map(b => b.id)
 
         case None => stateChanges.boxIdsToRemove
-      }).map(b => ByteArrayWrapper(b.hash.value))
+      }).map(b => b.hash.value)
 
       // enforce that the input id's must not match any of the output id's (added emptiness checks for testing)
       require(
@@ -206,8 +206,8 @@ case class State(
 
       log.debug(
         s"Attempting update to State from version ${version.toString} to version $newVersion. " +
-        s"Removing boxes with ids ${boxIdsToRemove.map(b => Base58.encode(b.data))}. " +
-        s"Adding boxes ${boxesToAdd.map(b => Base58.encode(b._1.data))}."
+        s"Removing boxes with ids ${boxIdsToRemove.map(Base58.encode(_))}. " +
+        s"Adding boxes ${boxesToAdd.map(b => Base58.encode(b._1))}."
       )
 
       if (storage.lastVersionID.isDefined) {
@@ -216,7 +216,7 @@ case class State(
             require(
               getBox(id).isDefined,
               s"Box id: $id not found in state version: " +
-              s"${Base58.encode(storage.lastVersionID.get.data)}. Aborting state update"
+              s"${Base58.encode(storage.lastVersionID.get)}. Aborting state update"
             )
           }
       }
@@ -240,7 +240,7 @@ case class State(
         case _ => None
       }
 
-      storage.update(ByteArrayWrapper(newVersion.bytes), boxIdsToRemove, boxesToAdd)
+      storage.update(newVersion.bytes, boxIdsToRemove, boxesToAdd)
 
       // create updated instance of state
       val newState = State(newVersion, storage, updatedTBR, updatedPBR, nodeKeys)
@@ -303,11 +303,11 @@ object State extends Logging {
   def readOrGenerate(settings: AppSettings)(implicit networkPrefix: NetworkPrefix): State = {
     val sFile = stateFile(settings)
     sFile.mkdirs()
-    val storage = new LSMStore(sFile, keySize = BoxId.size)
+    val storage = new LDBVersionedStore(sFile, 1000)
 
     val version: VersionTag =
       storage.lastVersionID
-        .fold(Option(ModifierId.empty))(bw => ModifierId.parseBytes(bw.data).toOption)
+        .fold(Option(ModifierId.empty))(bw => ModifierId.parseBytes(bw).toOption)
         .getOrElse(throw new Error("Unable to define state version during initialization"))
 
     // node keys are a set of keys that this node will restrict its state to update

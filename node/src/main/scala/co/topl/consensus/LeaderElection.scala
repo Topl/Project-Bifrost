@@ -45,7 +45,7 @@ object LeaderElection extends Logging {
         boxes
           .map(box => (box, calcHit(parent)(box)))
           .filter { case (box, hit) =>
-            hit < calcTarget(box.value.quantity, timestamp - parent.timestamp, parent.difficulty, parent.height)
+            BigInt(hit) < calcTarget(box.value.quantity, timestamp - parent.timestamp, parent.difficulty, parent.height)
           }
           .map(_._1)
           .headOption

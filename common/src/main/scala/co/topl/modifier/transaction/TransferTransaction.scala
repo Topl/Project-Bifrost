@@ -13,6 +13,7 @@ import io.circe.syntax.EncoderOps
 
 import scala.util.Try
 import scala.Iterable
+import scala.collection.immutable.ListMap
 
 abstract class TransferTransaction[
   +T <: TokenValueHolder,
@@ -20,7 +21,7 @@ abstract class TransferTransaction[
 ](
   val from:                        IndexedSeq[(Address, Box.Nonce)],
   val to:                          IndexedSeq[(Address, T)],
-  val attestation:                 Map[P, Proof[P]],
+  val attestation:                 ListMap[P, Proof[P]],
   val fee:                         Int128,
   val timestamp:                   Long,
   val data:                        Option[String],

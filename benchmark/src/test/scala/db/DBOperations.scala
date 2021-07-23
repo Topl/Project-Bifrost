@@ -7,7 +7,6 @@
 //import co.topl.BifrostGenerators
 //import co.topl.nodeView.history._
 //import co.topl.modifier.block.{Block, BlockSerializer}
-//import io.iohk.iodb.ByteArrayWrapper
 //
 //
 //@OutputTimeUnit(TimeUnit.NANOSECONDS)
@@ -22,14 +21,14 @@
 //  val numOfBlocks: Int = 550
 //  val numLastBlocks: Int = 500
 //
-//  val listBlockId: List[ByteArrayWrapper] = (for (_ <- 1 to numOfBlocks) yield {
+//  val listBlockId: List[] = (for (_ <- 1 to numOfBlocks) yield {
 //    val oneBlock: Block = BlockGen.sample.get.copy(parentId = history.bestBlockId)
 //    history = history.append(oneBlock).get._1
-//    /* println(s"forging====$i====${ByteArrayWrapper(oneBlock.id)}") */
-//    ByteArrayWrapper(oneBlock.id.hashBytes)
+//    /* println(s"forging====$i====${(oneBlock.id)}") */
+//    (oneBlock.id.hashBytes)
 //  }).take(numLastBlocks).toList
 //
-//  val bestBlockIdKey: ByteArrayWrapper = ByteArrayWrapper(Array.fill(history.storage.storage.keySize)(-1: Byte))
+//  val bestBlockIdKey:  = (Array.fill(history.storage.storage.keySize)(-1: Byte))
 //  val storageCurBlockId: ModifierId = ModifierId(history.storage.storage.get(bestBlockIdKey).get.data)
 //  val cacheCurBlockId: ModifierId = ModifierId(history.storage.storage.get(bestBlockIdKey).get.data)
 //
@@ -39,7 +38,7 @@
 //  def storageTest() {
 //    var tmpStorageBlockId: ModifierId = storageCurBlockId
 //    for (_ <- 1 to numLastBlocks) {
-//      val currentBlock: Block = history.storage.storage.get(ByteArrayWrapper(tmpStorageBlockId.hashBytes)).map { bw =>
+//      val currentBlock: Block = history.storage.storage.get((tmpStorageBlockId.hashBytes)).map { bw =>
 //        val bytes = bw.data
 //        BlockSerializer.parseBytes(bytes.tail).get
 //      }.get
@@ -52,7 +51,7 @@
 //  def cacheTest() {
 //    var tmpCacheBlockId: ModifierId = cacheCurBlockId
 //    for (_ <- 1 to numLastBlocks) {
-//      val currentBlock: Block = history.storage.blockCache.getIfPresent(ByteArrayWrapper(tmpCacheBlockId.hashBytes)).map {
+//      val currentBlock: Block = history.storage.blockCache.getIfPresent((tmpCacheBlockId.hashBytes)).map {
 //        bw =>
 //          val bytes = bw.data
 //          BlockSerializer.parseBytes(bytes.tail).get
@@ -90,7 +89,6 @@
 //import org.openjdk.jmh.infra.Blackhole
 //import co.topl.nodeView.history._
 //import io.circe.Json
-//import io.iohk.iodb.LSMStore
 //
 //
 //@OutputTimeUnit(TimeUnit.NANOSECONDS)

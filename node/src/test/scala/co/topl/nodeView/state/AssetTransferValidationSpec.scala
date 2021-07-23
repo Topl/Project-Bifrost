@@ -39,7 +39,7 @@ class AssetTransferValidationSpec extends MockState {
           .applyChanges(preparedState.changes(block).get, Ints.toByteArray(8))
           .get
 
-        assetTransfer.newBoxes.forall(b => newState.storage.get(ByteArrayWrapper(b.id)) match {
+        assetTransfer.newBoxes.forall(b => newState.storage.get((b.id)) match {
           case Some(wrapper) => wrapper.data sameElements b.bytes
           case None => false
         })
@@ -48,7 +48,7 @@ class AssetTransferValidationSpec extends MockState {
         require(preExistingAssetBoxes
                   .forall(pb => newState
                     .storage
-                    .get(ByteArrayWrapper(pb.id))
+                    .get((pb.id))
                     .isEmpty))
 
         BifrostStateSpec.genesisState = newState

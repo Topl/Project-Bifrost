@@ -16,7 +16,7 @@ import co.topl.modifier.transaction.serialization.TransactionSerializer
 import co.topl.modifier.transaction.validation.implicits._
 import co.topl.modifier.{ModifierId, NodeViewModifier}
 import co.topl.network.NodeViewSynchronizer.ReceivableMessages._
-import co.topl.nodeView.NodeViewHolder.UpdateInformation
+import co.topl.nodeView.NodeViewHolder.{consensusCheckpoints, UpdateInformation}
 import co.topl.nodeView.history.GenericHistory.ProgressInfo
 import co.topl.nodeView.history.History
 import co.topl.nodeView.mempool.MemPool
@@ -24,6 +24,7 @@ import co.topl.nodeView.state.State
 import co.topl.settings.{AppContext, AppSettings, NodeViewReady}
 import co.topl.utils.Logging
 import co.topl.utils.NetworkType.NetworkPrefix
+import co.topl.utils.StringDataTypes.Base58Data
 import co.topl.utils.serialization.BifrostSerializer
 
 import scala.annotation.tailrec
@@ -255,8 +256,11 @@ class NodeViewHolder(settings: AppSettings, appContext: AppContext)(implicit ec:
     if (!history().contains(pmod.id)) {
       context.system.eventStream.publish(StartingPersistentModifierApplication(pmod))
 
+      def isBlockTxsValidated: Boolean =
+        consensusCheckpoints.contains(pmod.id) || pmod.transactions.forall(_.semanticValidation(minimalState()).isValid)
+
       // check that the transactions are semantically valid
-      if (pmod.transactions.forall(_.semanticValidation(minimalState()).isValid)) {
+      if (isBlockTxsValidated) {
         log.info(s"Apply modifier ${pmod.id} of type ${pmod.modifierTypeId} to nodeViewHolder")
 
         // append the block to history
@@ -517,6 +521,11 @@ object NodeViewHolder {
 
   }
 
+  val consensusCheckpoints: Seq[ModifierId] = Seq(
+    ModifierId.fromBase58(
+      Base58Data.unsafe("29QHPjqyLB1QN6DhArf125Nu3qfgKLcPRnZGvaCX8qDNf")
+    ) // block height 255181 Valhalla testnet
+  )
 }
 
 ////////////////////////////////////////////////////////////////////////////////////

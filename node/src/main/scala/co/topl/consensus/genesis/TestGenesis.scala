@@ -45,10 +45,10 @@ case class TestGenesis(addressesCurve25519: Set[Address], addressesEd25519: Set[
 
     val txInputCurve25519 = (
       IndexedSeq(),
-      (genesisAcctCruve25519.publicImage.address -> SimpleValue(0L)) +: addressesCurve25519
+      (genesisAcctCurve25519.publicImage.address -> SimpleValue(0L)) +: addressesCurve25519
         .map(_ -> SimpleValue(balance))
         .toIndexedSeq,
-      Map(genesisAcctCruve25519.publicImage -> SignatureCurve25519.genesis),
+      ListMap(genesisAcctCurve25519.publicImage -> SignatureCurve25519.genesis),
       Int128(0),
       0L,
       None,
@@ -60,7 +60,7 @@ case class TestGenesis(addressesCurve25519: Set[Address], addressesEd25519: Set[
       (genesisAcctEd25519.publicImage.address -> SimpleValue(0L)) +: addressesEd25519
         .map(_ -> SimpleValue(balance))
         .toIndexedSeq,
-      Map(genesisAcctEd25519.publicImage -> SignatureEd25519.genesis),
+      ListMap(genesisAcctEd25519.publicImage -> SignatureEd25519.genesis),
       Int128(0),
       0L,
       None,
@@ -74,7 +74,7 @@ case class TestGenesis(addressesCurve25519: Set[Address], addressesEd25519: Set[
       (PolyTransfer[PublicKeyPropositionEd25519] _).tupled(txInputEd25519)
     )
 
-    val generatorBox = ArbitBox(genesisAcctCruve25519.publicImage.generateEvidence, 0, SimpleValue(privateTotalStake))
+    val generatorBox = ArbitBox(genesisAcctCurve25519.publicImage.generateEvidence, 0, SimpleValue(privateTotalStake))
 
     val signature = SignatureCurve25519.genesis
 
@@ -83,7 +83,7 @@ case class TestGenesis(addressesCurve25519: Set[Address], addressesEd25519: Set[
         ModifierId.genesisParentId,
         0L,
         generatorBox,
-        genesisAcctCruve25519.publicImage,
+        genesisAcctCurve25519.publicImage,
         signature,
         1L,
         initialDifficulty,
